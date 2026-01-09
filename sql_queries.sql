@@ -74,3 +74,9 @@ create table ticket_log(
 );
 alter table ticket_log modify column ticket_status enum("Open","In_Progress","Close");
 
+-- create procedure
+-- create trigger ticket_create_trigger
+-- after insert on ticket
+-- for each row 
+-- begin
+-- end;
