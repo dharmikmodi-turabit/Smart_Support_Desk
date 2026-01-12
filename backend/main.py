@@ -28,6 +28,7 @@ class Login(BaseModel):
 #     state : str 
 #     country : str
 class EmployeeRegister(BaseModel):
+    your_email : str
     name : str
     email : str 
     mobile_number : str 
@@ -44,321 +45,10 @@ class CustomerRegister(BaseModel):
     country : str
     address : str
 
+class DeleteUser(BaseModel):
+    your_email : str
+    email : str
 app = FastAPI()
-
-# # -------------------------------------- Team Leader ----------------------------------------------
-# @app.post("/login_team_leader")
-# def team_leader_login(data: Login,db = Depends(access_db)):
-#     try:
-#         c = db.cursor()
-#         c.execute("select team_leader_email,team_leader_password from team_leader where team_leader_email = %s",(data.email,))
-#         d = c.fetchone()
-        
-#         if d is None:
-#             raise HTTPException(
-#                 status_code=status.HTTP_401_UNAUTHORIZED,
-#                 detail="Invalid email"
-#             )
-
-#         if data.password != d["team_leader_password"]:
-#             raise HTTPException(
-#                 status_code=status.HTTP_401_UNAUTHORIZED,
-#                 detail="Invalid password"
-#             )
-
-#         print("success")
-#         return {"message": "Login successful"}
-#     except Exception as e:
-#         return e
-
-# @app.get("/all_team_leaders")
-# def fetch_all_team_leaders(db = Depends(access_db)):
-#     try:
-#         with db:
-#             with db.cursor() as cursor:
-#                 team_leader = cursor.execute("select * from team_leader")
-#                 if team_leader:
-#                     d = cursor.fetchall()
-#                     return d
-#                 else:
-#                     raise HTTPException(
-#                             status_code=status.HTTP_404_NOT_FOUND,
-#                             detail="Team Leader not found"
-#                         )
-#     except Exception as e:
-#         return e
-
-# # -------------------------------------- Agent ----------------------------------------------
-# @app.post("/employee_registration")
-# def agent_registration(data:AgentRegister,db = Depends(access_db)):
-#     try:
-#         with db:
-#             with db.cursor() as cursor:
-#                 team_leader = cursor.execute("select * from team_leader where team_leader_email = %s",(data.team_leader_email,))
-#                 if team_leader:
-#                     cursor.execute("select * from agent where agent_email = %s",(data.email,))
-#                     d = cursor.fetchone()
-#                     if d:
-#                         raise HTTPException(
-#                             status_code=status.HTTP_409_CONFLICT,
-#                             detail="Email already exist"
-#                         )
-#                     cursor.execute("insert into agent(agent_name,agent_email,agent_mobile_number,agent_password, agent_ticket_count,agent_rating) values (%s,%s,%s,%s,0,0)",(data.name,data.email,data.mobile_number,data.password))
-#                     db.commit()
-#                     return {"status_code":status.HTTP_201_CREATED, "message":"Agent registered"}
-#                 else:
-#                     raise HTTPException(
-#                             status_code=status.HTTP_404_NOT_FOUND,
-#                             detail="Team Leader not found"
-#                         )
-#     except Exception as e:
-#         return e
-
-# @app.get("/all_agents")
-# def fetch_all_agents(db = Depends(access_db)):
-#     try:
-#         with db:
-#             with db.cursor() as cursor:
-#                 agent = cursor.execute("select * from agent")
-#                 if agent:
-#                     d = cursor.fetchall()
-#                     return d
-#                 else:
-#                     raise HTTPException(
-#                             status_code=status.HTTP_404_NOT_FOUND,
-#                             detail="Agent not found"
-#                         )
-#     except Exception as e:
-#         return e
-    
-# @app.post("/agent_login")
-# def agent_login(data: Login,db = Depends(access_db)):
-#     try:
-#         c = db.cursor()
-#         c.execute("select agent_email,agent_password from agent where agent_email = %s",(data.email,))
-#         d = c.fetchone()
-        
-#         if d is None:
-#             raise HTTPException(
-#                 status_code=status.HTTP_401_UNAUTHORIZED,
-#                 detail="Invalid email"
-#             )
-
-#         if data.password != d["agent_password"]:
-#             raise HTTPException(
-#                 status_code=status.HTTP_401_UNAUTHORIZED,
-#                 detail="Invalid password"
-#             )
-
-#         print("success")
-#         return {"message": "Login successful"}
-#     except Exception as e:
-#         return 
-
-# @app.put("/agent_update")
-# def update_agent(data : AgentRegister,db = Depends(access_db)):
-#     try:
-#         with db:
-#             with db.cursor() as cursor:
-#                 team_leader = cursor.execute("select * from team_leader where team_leader_email = %s",(data.team_leader_email,))
-#                 if team_leader:
-#                     cursor.execute("select agent_email from agent where agent_email = %s",(data.email,))
-#                     d = cursor.fetchone()
-#                     if d:
-#                         cursor.execute("update agent set agent_name=%s,agent_mobile_number=%s,agent_password=%s where agent_email = %s",(data.name,data.mobile_number,data.password,data.email))
-#                         db.commit()
-#                         return status.HTTP_202_ACCEPTED
-#                     raise HTTPException(
-#                         status_code=status.HTTP_404_NOT_FOUND,
-#                         detail="Email not exist"
-#                     )
-#                 raise HTTPException(
-#                         status_code=status.HTTP_404_NOT_FOUND,
-#                         detail="Team Leader not found"
-#                     )    
-#     except Exception as e:
-#         return e
-    
-# @app.delete("/agent_remove")
-# def remove_agent(team_leader_email:str,email:str,db = Depends(access_db)):
-#     try:
-#         with db:
-#             with db.cursor() as cursor:
-#                 team_leader = cursor.execute("select * from team_leader where team_leader_email = %s",(team_leader_email,))
-#                 if team_leader:
-#                     cursor.execute("select agent_email from agent where agent_email = %s",(email,))
-#                     d = cursor.fetchone()
-#                     if d:
-#                         cursor.execute("delete from agent where agent_email = %s",(email))
-#                         db.commit()
-#                         return status.HTTP_200_OK
-#                     raise HTTPException(
-#                         status_code=status.HTTP_404_NOT_FOUND,
-#                         detail="Email not exist"
-#                     )
-#                 raise HTTPException(
-#                         status_code=status.HTTP_404_NOT_FOUND,
-#                         detail="Team Leader not found"
-#                     )    
-#     except Exception as e:
-#         return e
-
-# # -------------------------------------- Service person ----------------------------------------------
-
-# @app.get("/all_service_person")
-# def fetch_all_service_person(db = Depends(access_db)):
-#     try:
-#         with db:
-#             with db.cursor() as cursor:
-#                 service_person = cursor.execute("select * from service_person")
-#                 if service_person:
-#                     d = cursor.fetchall()
-#                     return d
-#                 else:
-#                     raise HTTPException(
-#                             status_code=status.HTTP_404_NOT_FOUND,
-#                             detail="Service person not found"
-#                         )
-#     except Exception as e:
-#         return e
-
-# @app.post("/service_person_registration")
-# def service_person_registration(data:ServicePersonRegister,db = Depends(access_db)):
-#     try:
-#         with db:
-#             with db.cursor() as cursor:
-#                 agent = cursor.execute("select * from agent where agent_email = %s",(data.agent_email,))
-#                 if agent:
-#                     cursor.execute("select * from service_person where service_person_email = %s",(data.email,))
-#                     d = cursor.fetchone()
-#                     if d:
-#                         raise HTTPException(
-#                             status_code=status.HTTP_409_CONFLICT,
-#                             detail="Email already exist"
-#                         )
-#                     query = '''insert into service_person(
-#                     service_person_name,
-#                     service_person_email,
-#                     service_person_mobile_number,
-#                     service_person_password, 
-#                     service_person_type,
-#                     service_person_ticket_count,
-#                     service_person_rating, 
-#                     service_person_city,
-#                     service_person_state, 
-#                     service_person_country
-#                     ) values (%s,%s,%s,%s,%s,0,0,%s,%s,%s)'''
-#                     values = (data.name,
-#                               data.email,
-#                               data.mobile_number,
-#                               data.password,
-#                               data.type,
-#                               data.city,
-#                               data.state,
-#                               data.country)
-#                     cursor.execute(query,values)
-#                     db.commit()
-#                     return {"status_code":status.HTTP_201_CREATED, "message":"Agent registered"}
-#                 else:
-#                     raise HTTPException(
-#                             status_code=status.HTTP_404_NOT_FOUND,
-#                             detail="Agent not found"
-#                         )
-#     except Exception as e:
-#         return e
-
-
-# @app.post("/serice_person_login")
-# def service_person_login(data: Login,db = Depends(access_db)):
-#     try:
-#         c = db.cursor()
-#         c.execute("select service_person_email,service_person_password from service_person where service_person_email = %s",(data.email,))
-#         d = c.fetchone()
-        
-#         if d is None:
-#             raise HTTPException(
-#                 status_code=status.HTTP_401_UNAUTHORIZED,
-#                 detail="Invalid email"
-#             )
-
-#         if data.password != d["service_person_password"]:
-#             raise HTTPException(
-#                 status_code=status.HTTP_401_UNAUTHORIZED,
-#                 detail="Invalid password"
-#             )
-
-#         print("success")
-#         return {"message": "Login successful"}
-#     except Exception as e:
-#         return e
-
-# @app.put("/update_service_person")
-# def update_service_person(data : ServicePersonRegister,db = Depends(access_db)):
-#     try:
-#         with db:
-#             with db.cursor() as cursor:
-#                 agent = cursor.execute("select * from agent where agent_email = %s",(data.agent_email,))
-#                 if agent:
-#                     cursor.execute("select service_person_email from service_person where service_person_email = %s",(data.email,))
-#                     d = cursor.fetchone()
-#                     if d:
-#                         query = '''update service_person set 
-#                         service_person_name = %s,
-#                         service_person_mobile_number = %s,
-#                         service_person_password = %s, 
-#                         service_person_type = %s,
-#                         service_person_city = %s,
-#                         service_person_state = %s, 
-#                         service_person_country = %s
-#                         where service_person_email = %s'''
-#                         values = (data.name,
-#                                   data.mobile_number,
-#                                   data.password,
-#                                   data.type,
-#                                   data.city,
-#                                   data.state,
-#                                   data.country,
-#                                   data.email)
-#                         cursor.execute(query,values)
-#                         db.commit()
-#                         return status.HTTP_202_ACCEPTED
-                        # return JSONResponse(
-                        #     status_code=status.HTTP_404_NOT_FOUND,
-                        #     content={
-                        #         "message": "Email not exist",
-                        #         "success": False
-                        #     }
-                        # )
-#                 raise HTTPException(
-#                         status_code=status.HTTP_404_NOT_FOUND,
-#                         detail="Agent not found"
-#                     )    
-#     except Exception as e:
-#         return e
-
-# @app.delete("/remove_service_person")
-# def remove_service_person(email:str,agent_email:str,db = Depends(access_db)):
-#     try:
-#         with db:
-#             with db.cursor() as cursor:
-#                 agent = cursor.execute("select * from agent where agent_email = %s",(agent_email,))
-#                 if agent:
-#                     cursor.execute("select service_person_email from service_person where service_person_email = %s",(email,))
-#                     d = cursor.fetchone()
-#                     if d:
-#                         cursor.execute("delete from service_person where service_person_email = %s",(email))
-#                         db.commit()
-#                         return status.HTTP_200_OK
-#                     raise HTTPException(
-#                         status_code=status.HTTP_404_NOT_FOUND,
-#                         detail="Email not exist"
-#                     )
-#                 raise HTTPException(
-#                         status_code=status.HTTP_404_NOT_FOUND,
-#                         detail="Agent not found"
-#                     )    
-#     except Exception as e:
-#         return e
 
 # -------------------------------------- Employee ----------------------------------------------
 @app.post("/employee_registration")
@@ -366,6 +56,25 @@ def employee_registration(data:EmployeeRegister,db = Depends(access_db)):
     try:
         with db:
             with db.cursor() as cursor:
+                cursor.execute("select type_name from employee_type where employee_type_id =(select employee_type from employee where employee_email = %s)",(data.your_email,))
+                senior_type = cursor.fetchone()['type_name']
+                junior_type = data.type
+                if senior_type == "Service Person":
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="You have not permit"
+                    )
+                elif senior_type == "Agent" and junior_type == "Admin":
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="You have not permit"
+                    )
+                elif senior_type == "Agent" and junior_type == "Agent":
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="You have not permit"
+                    )
+                
                 cursor.execute("select * from employee where employee_email = %s",(data.email,))
                 d = cursor.fetchone()
                 if d:
@@ -392,7 +101,10 @@ def employee_registration(data:EmployeeRegister,db = Depends(access_db)):
                     detail="Employee registered"
                 )
     except Exception as e:
-        return e
+        raise HTTPException(
+        status_code=500,
+        detail=str(e)
+    )
 
 @app.get("/all_employees")
 def fetch_all_employees(db = Depends(access_db)):
@@ -429,13 +141,35 @@ def employee_login(data: Login,db = Depends(access_db)):
         print("success")
         return {"message": "Login successful"}
     except Exception as e:
-        return e
+        raise HTTPException(
+        status_code=500,
+        detail=str(e)
+    )
 
 @app.put("/employee_update")
 def update_employee(data : EmployeeRegister,db = Depends(access_db)):
     try:
         with db:
             with db.cursor() as cursor:
+                cursor.execute("select type_name from employee_type where employee_type_id =(select employee_type from employee where employee_email = %s)",(data.your_email,))
+                senior_type = cursor.fetchone()['type_name']
+                junior_type = data.type
+                if senior_type == "Service Person":
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="You have not permit"
+                    )
+                elif senior_type == "Agent" and junior_type == "Admin":
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="You have not permit"
+                    )
+                elif senior_type == "Agent" and junior_type == "Agent":
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="You have not permit"
+                    )
+                
                 cursor.execute("select employee_email from employee where employee_email = %s",(data.email,))
                 d = cursor.fetchone()
                 cursor.execute("select employee_type_id from employee_type where type_name=%s",(data.type,))
@@ -452,25 +186,51 @@ def update_employee(data : EmployeeRegister,db = Depends(access_db)):
                     }
                 )
     except Exception as e:
-        return e
+        raise HTTPException(
+        status_code=500,
+        detail=str(e)
+    )
     
 @app.delete("/employee_remove")
-def remove_employee(email:str,db = Depends(access_db)):
+def remove_employee(data : DeleteUser,db = Depends(access_db)):
     try:
         with db:
             with db.cursor() as cursor:
-                cursor.execute("select employee_email from employee where employee_email = %s",(email,))
+                cursor.execute("select type_name from employee_type where employee_type_id =(select employee_type from employee where employee_email = %s)",(data.your_email,))
+                senior_type = cursor.fetchone()['type_name']
+                cursor.execute("select type_name from employee_type where employee_type_id =(select employee_type from employee where employee_email = %s)",(data.email,))
+                junior_type = cursor.fetchone()['type_name']
+                if senior_type == "Service Person":
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="You have not permit"
+                    )
+                elif senior_type == "Agent" and junior_type == "Admin":
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="You have not permit"
+                    )
+                elif senior_type!="Admin" and senior_type == junior_type:
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="You have not permit"
+                    )
+                
+                cursor.execute("select employee_email from employee where employee_email = %s",(data.email,))
                 d = cursor.fetchone()
                 if d:
-                    cursor.execute("delete from employee where employee_email = %s",(email))
+                    cursor.execute("delete from employee where employee_email = %s",(data.email,))
                     db.commit()
                     return status.HTTP_200_OK
                 raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
+                    status_code=404,
                     detail="Email not exist"
                 )
     except Exception as e:
-        return e
+        raise HTTPException(
+        status_code=500,
+        detail=str(e)
+    )
 
 
 
@@ -491,7 +251,10 @@ def fetch_all_customers(db = Depends(access_db)):
                             detail="Customer not found"
                         )
     except Exception as e:
-        return e
+        raise HTTPException(
+        status_code=500,
+        detail=str(e)
+    )
     
 
 @app.post("/customer_registration")
@@ -499,6 +262,13 @@ def customer_registration(data:CustomerRegister,db = Depends(access_db)):
     try:
         with db:
             with db.cursor() as cursor:
+                cursor.execute("select type_name from employee_type where employee_type_id =(select employee_type from employee where employee_email = %s)",(data.your_email,))
+                employee_type = cursor.fetchone()['type_name']
+                if employee_type == "Service Person":
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="You have not permit"
+                    )
                 agent = cursor.execute("select * from agent where agent_email = %s",(data.agent_email,))
                 if agent:
                     cursor.execute("select * from customer where customer_email = %s",(data.email,))
@@ -535,7 +305,10 @@ def customer_registration(data:CustomerRegister,db = Depends(access_db)):
                             detail="Agent not found",
                         )
     except Exception as e:
-        return e
+        raise HTTPException(
+        status_code=500,
+        detail=str(e)
+    )
 
 
 # @app.post("/customer_login")
@@ -567,6 +340,13 @@ def update_customer(data : CustomerRegister,db = Depends(access_db)):
     try:
         with db:
             with db.cursor() as cursor:
+                cursor.execute("select type_name from employee_type where employee_type_id =(select employee_type from employee where employee_email = %s)",(data.your_email,))
+                employee_type = cursor.fetchone()['type_name']
+                if employee_type == "Service Person":
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="You have not permit"
+                    )
                 cursor.execute("select customer_email from customer where customer_email = %s",(data.email,))
                 d = cursor.fetchone()
                 if d:
@@ -601,34 +381,44 @@ def update_customer(data : CustomerRegister,db = Depends(access_db)):
                         "success": False
                     }
                 )
-                # raise HTTPException(
-                #     status_code=status.HTTP_404_NOT_FOUND,
-                #     detail="Email not exist"
-                # )  
     except Exception as e:
-        return e
+        raise HTTPException(
+        status_code=500,
+        detail=str(e)
+    )
 
 @app.delete("/remove_customer")
-def remove_customer(email:str,agent_email:str,db = Depends(access_db)):
+def remove_customer(data = DeleteUser,db = Depends(access_db)):
     try:
         with db:
             with db.cursor() as cursor:
-                # agent = cursor.execute("select * from agent where agent_email = %s",(agent_email,))
-                # if agent:
-                    cursor.execute("select customer_email from customer where customer_email = %s",(email,))
-                    d = cursor.fetchone()
-                    if d:
-                        cursor.execute("delete from customer where customer_email = %s",(email))
-                        db.commit()
-                        return status.HTTP_200_OK
+                cursor.execute("select type_name from employee_type where employee_type_id =(select employee_type from employee where employee_email = %s)",(data.your_email,))
+                senior_type = cursor.fetchone()['type_name']
+                if senior_type == "Service Person":
                     raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail="Email not exist"
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="You have not permit"
                     )
-                # raise HTTPException(
-                #         status_code=status.HTTP_404_NOT_FOUND,
-                #         detail="Agent not found"
-                #     )    
+                cursor.execute("select type_name from employee_type where employee_type_id =(select employee_type from employee where employee_email = %s)",(data.your_email,))
+                employee_type = cursor.fetchone()['type_name']
+                if employee_type == "Service Person":
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="You have not permit"
+                    )
+                cursor.execute("select customer_email from customer where customer_email = %s",(data.email,))
+                d = cursor.fetchone()
+                if d:
+                    cursor.execute("delete from customer where customer_email = %s",(data.email))
+                    db.commit()
+                    return status.HTTP_200_OK
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Email not exist"
+                )
     except Exception as e:
-        return e
+        raise HTTPException(
+        status_code=500,
+        detail=str(e)
+    )
 
