@@ -1,4 +1,5 @@
 from fastapi import FastAPI, status,Depends, HTTPException
+from fastapi.responses import JSONResponse
 from database import access_db
 from pydantic import BaseModel
 import pymysql.cursors
@@ -34,7 +35,6 @@ class EmployeeRegister(BaseModel):
     type : str
 
 class CustomerRegister(BaseModel):
-    agent_email : str
     name : str
     email : str
     mobile_number : str
@@ -322,10 +322,13 @@ app = FastAPI()
 #                         cursor.execute(query,values)
 #                         db.commit()
 #                         return status.HTTP_202_ACCEPTED
-#                     raise HTTPException(
-#                         status_code=status.HTTP_404_NOT_FOUND,
-#                         detail="Email not exist"
-#                     )
+                        # return JSONResponse(
+                        #     status_code=status.HTTP_404_NOT_FOUND,
+                        #     content={
+                        #         "message": "Email not exist",
+                        #         "success": False
+                        #     }
+                        # )
 #                 raise HTTPException(
 #                         status_code=status.HTTP_404_NOT_FOUND,
 #                         detail="Agent not found"
@@ -367,7 +370,7 @@ def employee_registration(data:EmployeeRegister,db = Depends(access_db)):
                 d = cursor.fetchone()
                 if d:
                     raise HTTPException(
-                        status_code=status.HTTP_409_CONFLICT,
+                        status_code = status.HTTP_409_CONFLICT,
                         detail="Email already exist"
                     )
                 cursor.execute("select employee_type_id from employee_type where type_name=%s",(data.type,))
@@ -384,7 +387,10 @@ def employee_registration(data:EmployeeRegister,db = Depends(access_db)):
                 values = (data.name,data.email,data.mobile_number,data.password,type_id)
                 cursor.execute(query,values)
                 db.commit()
-                return {"status_code":status.HTTP_201_CREATED, "message":"Employee registered"}
+                raise HTTPException(
+                    status_code=status.HTTP_201_CREATED,
+                    detail="Employee registered"
+                )
     except Exception as e:
         return e
 
@@ -398,9 +404,9 @@ def fetch_all_employees(db = Depends(access_db)):
                 return d
             else:
                 raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail="employee not found"
-                    )
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Employee not found"
+                )
     
 @app.post("/employee_login")
 def employee_login(data: Login,db = Depends(access_db)):
@@ -440,7 +446,10 @@ def update_employee(data : EmployeeRegister,db = Depends(access_db)):
                     return status.HTTP_202_ACCEPTED
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Email not exist"
+                    detail={
+                        "message": "Email not exist",
+                        "success": False
+                    }
                 )
     except Exception as e:
         return e
@@ -465,71 +474,71 @@ def remove_employee(email:str,db = Depends(access_db)):
 
 
 
-# # -------------------------------------- customer ----------------------------------------------
+# -------------------------------------- customer ----------------------------------------------
 
-# @app.get("/all_customers")
-# def fetch_all_customers(db = Depends(access_db)):
-#     try:
-#         with db:
-#             with db.cursor() as cursor:
-#                 cursor.execute("select * from customer")
-#                 d = cursor.fetchall()
-#                 if d:
-#                     return d
-#                 else:
-#                     raise HTTPException(
-#                             status_code=status.HTTP_404_NOT_FOUND,
-#                             detail="Customer not found"
-#                         )
-#     except Exception as e:
-#         return e
+@app.get("/all_customers")
+def fetch_all_customers(db = Depends(access_db)):
+    try:
+        with db:
+            with db.cursor() as cursor:
+                cursor.execute("select * from customer")
+                d = cursor.fetchall()
+                if d:
+                    return d
+                else:
+                    raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail="Customer not found"
+                        )
+    except Exception as e:
+        return e
     
 
-# @app.post("/customer_registration")
-# def customer_registration(data:CustomerRegister,db = Depends(access_db)):
-#     try:
-#         with db:
-#             with db.cursor() as cursor:
-#                 agent = cursor.execute("select * from agent where agent_email = %s",(data.agent_email,))
-#                 if agent:
-#                     cursor.execute("select * from customer where customer_email = %s",(data.email,))
-#                     d = cursor.fetchone()
-#                     if d:
-#                         raise HTTPException(
-#                             status_code=status.HTTP_409_CONFLICT,
-#                             detail="Email already exist"
-#                         )
-#                     query = '''insert into customer(
-#                     customer_name, 
-#                     customer_email, 
-#                     customer_mobile_number, 
-#                     customer_company_name, 
-#                     customer_city, 
-#                     customer_state, 
-#                     customer_country, 
-#                     customer_address
-#                     ) values (%s,%s,%s,%s,%s,%s,%s,%s)'''
-#                     values = (data.name,
-#                               data.email,
-#                               data.mobile_number,
-#                               data.company_name,
-#                               data.city,
-#                               data.state,
-#                               data.country,
-#                               data.address)
-#                     cursor.execute(query,values)
-#                     db.commit()
-#                     return {"status_code":status.HTTP_201_CREATED, "message":"Customer registered"}
-#                 else:
-#                     raise HTTPException(
-#                             status_code=status.HTTP_404_NOT_FOUND,
-#                             detail="Agent not found"
-#                         )
-#     except Exception as e:
-#         return e
+@app.post("/customer_registration")
+def customer_registration(data:CustomerRegister,db = Depends(access_db)):
+    try:
+        with db:
+            with db.cursor() as cursor:
+                agent = cursor.execute("select * from agent where agent_email = %s",(data.agent_email,))
+                if agent:
+                    cursor.execute("select * from customer where customer_email = %s",(data.email,))
+                    d = cursor.fetchone()
+                    if d:
+                        raise HTTPException(
+                            status_code=status.HTTP_409_CONFLICT,
+                            detail="Email already exist"
+                        )
+                    query = '''insert into customer(
+                    customer_name, 
+                    customer_email, 
+                    customer_mobile_number, 
+                    customer_company_name, 
+                    customer_city, 
+                    customer_state, 
+                    customer_country, 
+                    customer_address
+                    ) values (%s,%s,%s,%s,%s,%s,%s,%s)'''
+                    values = (data.name,
+                              data.email,
+                              data.mobile_number,
+                              data.company_name,
+                              data.city,
+                              data.state,
+                              data.country,
+                              data.address)
+                    cursor.execute(query,values)
+                    db.commit()
+                    return {"status_code":status.HTTP_201_CREATED, "message":"Customer registered"}
+                else:
+                    raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail="Agent not found",
+                        )
+    except Exception as e:
+        return e
 
 
-# # @app.post("/customer_login")
+# @app.post("/customer_login")
 # # def customer_login(data: Login,db = Depends(access_db)):
 # #     try:
 # #         c = db.cursor()
@@ -553,68 +562,73 @@ def remove_employee(email:str,db = Depends(access_db)):
 # #     except Exception as e:
 # #         return e
 
-# # @app.put("/update_service_person")
-# # def update_service_person(data : ServicePersonRegister,db = Depends(access_db)):
-# #     try:
-# #         with db:
-# #             with db.cursor() as cursor:
-# #                 agent = cursor.execute("select * from agent where agent_email = %s",(data.agent_email,))
-# #                 if agent:
-# #                     cursor.execute("select service_person_email from service_person where service_person_email = %s",(data.email,))
-# #                     d = cursor.fetchone()
-# #                     if d:
-# #                         query = '''update service_person set 
-# #                         service_person_name = %s,
-# #                         service_person_mobile_number = %s,
-# #                         service_person_password = %s, 
-# #                         service_person_type = %s,
-# #                         service_person_city = %s,
-# #                         service_person_state = %s, 
-# #                         service_person_country = %s
-# #                         where service_person_email = %s'''
-# #                         values = (data.name,
-# #                                   data.mobile_number,
-# #                                   data.password,
-# #                                   data.type,
-# #                                   data.city,
-# #                                   data.state,
-# #                                   data.country,
-# #                                   data.email)
-# #                         cursor.execute(query,values)
-# #                         db.commit()
-# #                         return status.HTTP_202_ACCEPTED
-# #                     raise HTTPException(
-# #                         status_code=status.HTTP_404_NOT_FOUND,
-# #                         detail="Email not exist"
-# #                     )
-# #                 raise HTTPException(
-# #                         status_code=status.HTTP_404_NOT_FOUND,
-# #                         detail="Agent not found"
-# #                     )    
-# #     except Exception as e:
-# #         return e
+@app.put("/update_customer")
+def update_customer(data : CustomerRegister,db = Depends(access_db)):
+    try:
+        with db:
+            with db.cursor() as cursor:
+                cursor.execute("select customer_email from customer where customer_email = %s",(data.email,))
+                d = cursor.fetchone()
+                if d:
+                    query = '''update customer set 
+                    customer_name = %s,
+                    customer_mobile_number = %s, 
+                    customer_company_name = %s, 
+                    customer_city = %s, 
+                    customer_state = %s, 
+                    customer_country = %s, 
+                    customer_address = %s 
+                    where customer_email = %s'''
+                    values = (data.name,
+                              data.mobile_number,
+                              data.company_name,
+                              data.city,
+                              data.state,
+                              data.country,
+                              data.address,
+                              data.email)
+                    cursor.execute(query,values)
+                    print(1)
+                    db.commit()
+                    raise HTTPException(
+                        status_code=status.HTTP_202_ACCEPTED,
+                        detail={"Message":"Customer Updated!"}
+                        )
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail={
+                        "message": "Email not exist",
+                        "success": False
+                    }
+                )
+                # raise HTTPException(
+                #     status_code=status.HTTP_404_NOT_FOUND,
+                #     detail="Email not exist"
+                # )  
+    except Exception as e:
+        return e
 
-# # @app.delete("/remove_service_person")
-# # def remove_service_person(email:str,agent_email:str,db = Depends(access_db)):
-# #     try:
-# #         with db:
-# #             with db.cursor() as cursor:
-# #                 agent = cursor.execute("select * from agent where agent_email = %s",(agent_email,))
-# #                 if agent:
-# #                     cursor.execute("select service_person_email from service_person where service_person_email = %s",(email,))
-# #                     d = cursor.fetchone()
-# #                     if d:
-# #                         cursor.execute("delete from service_person where service_person_email = %s",(email))
-# #                         db.commit()
-# #                         return status.HTTP_200_OK
-# #                     raise HTTPException(
-# #                         status_code=status.HTTP_404_NOT_FOUND,
-# #                         detail="Email not exist"
-# #                     )
-# #                 raise HTTPException(
-# #                         status_code=status.HTTP_404_NOT_FOUND,
-# #                         detail="Agent not found"
-# #                     )    
-# #     except Exception as e:
-# #         return e
+@app.delete("/remove_customer")
+def remove_customer(email:str,agent_email:str,db = Depends(access_db)):
+    try:
+        with db:
+            with db.cursor() as cursor:
+                # agent = cursor.execute("select * from agent where agent_email = %s",(agent_email,))
+                # if agent:
+                    cursor.execute("select customer_email from customer where customer_email = %s",(email,))
+                    d = cursor.fetchone()
+                    if d:
+                        cursor.execute("delete from customer where customer_email = %s",(email))
+                        db.commit()
+                        return status.HTTP_200_OK
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Email not exist"
+                    )
+                # raise HTTPException(
+                #         status_code=status.HTTP_404_NOT_FOUND,
+                #         detail="Agent not found"
+                #     )    
+    except Exception as e:
+        return e
 
