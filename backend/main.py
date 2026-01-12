@@ -2,6 +2,9 @@ from fastapi import FastAPI, status,Depends, HTTPException
 from fastapi.responses import JSONResponse
 from database import access_db
 from pydantic import BaseModel
+from typing import Optional
+from enum import Enum
+from datetime import datetime
 import pymysql.cursors
 
 
@@ -10,32 +13,21 @@ class Login(BaseModel):
     email: str
     password: str
 
-# class AgentRegister(BaseModel):
-#     team_leader_email : str
-#     name : str
-#     email : str
-#     mobile_number : str
-#     password : str
+class UserRole(str, Enum):
+    Admin = "Admin"
+    Agent = "Agent"
+    service_person = "Service Person"
 
-# class ServicePersonRegister(BaseModel):
-#     agent_email : str
-#     name : str
-#     email : str 
-#     mobile_number : str 
-#     password : str 
-#     type : str 
-#     city : str 
-#     state : str 
-#     country : str
 class EmployeeRegister(BaseModel):
-    your_email : str
+    emp_id : int
     name : str
     email : str 
     mobile_number : str 
     password : str 
-    type : str
+    type : UserRole
 
 class CustomerRegister(BaseModel):
+    emp_id : int
     name : str
     email : str
     mobile_number : str
@@ -46,8 +38,41 @@ class CustomerRegister(BaseModel):
     address : str
 
 class DeleteUser(BaseModel):
-    your_email : str
+    emp_id : int
     email : str
+
+class TicketPriority(str,Enum):
+    Low = "Low"
+    Medium = "Medium"
+    High = "High"
+
+class TicketStatus(str,Enum):
+    Open = "Open"
+    Low = "Close"
+    Medium = "In_Progress"
+
+class TicketRegister(BaseModel):
+    creater_emp_id : int
+    service_person_emp_id : Optional[int] = None
+    customer_email : str
+    issue_title : str 
+    issue_type : str 
+    issue_description : str 
+    priority : TicketPriority 
+    reason : str 
+    generate_datetime : datetime
+    solve_datetime : Optional[datetime] = None
+    ticket_status : TicketStatus
+
+class TicketUpdate(BaseModel):
+    ticket_id : int
+    service_person_emp_id : int
+    issue_type : str 
+    issue_description : str 
+    priority : TicketPriority 
+    reason : str 
+    ticket_status : TicketStatus
+
 app = FastAPI()
 
 # -------------------------------------- Employee ----------------------------------------------
@@ -56,7 +81,7 @@ def employee_registration(data:EmployeeRegister,db = Depends(access_db)):
     try:
         with db:
             with db.cursor() as cursor:
-                cursor.execute("select type_name from employee_type where employee_type_id =(select employee_type from employee where employee_email = %s)",(data.your_email,))
+                cursor.execute("select type_name from employee_type where employee_type_id =(select employee_type from employee where employee_id = %s)",(data.emp_id,))
                 senior_type = cursor.fetchone()['type_name']
                 junior_type = data.type
                 if senior_type == "Service Person":
@@ -151,7 +176,7 @@ def update_employee(data : EmployeeRegister,db = Depends(access_db)):
     try:
         with db:
             with db.cursor() as cursor:
-                cursor.execute("select type_name from employee_type where employee_type_id =(select employee_type from employee where employee_email = %s)",(data.your_email,))
+                cursor.execute("select type_name from employee_type where employee_type_id =(select employee_type from employee where employee_id = %s)",(data.emp_id,))
                 senior_type = cursor.fetchone()['type_name']
                 junior_type = data.type
                 if senior_type == "Service Person":
@@ -196,7 +221,7 @@ def remove_employee(data : DeleteUser,db = Depends(access_db)):
     try:
         with db:
             with db.cursor() as cursor:
-                cursor.execute("select type_name from employee_type where employee_type_id =(select employee_type from employee where employee_email = %s)",(data.your_email,))
+                cursor.execute("select type_name from employee_type where employee_type_id =(select employee_type from employee where employee_id = %s)",(data.emp_id,))
                 senior_type = cursor.fetchone()['type_name']
                 cursor.execute("select type_name from employee_type where employee_type_id =(select employee_type from employee where employee_email = %s)",(data.email,))
                 junior_type = cursor.fetchone()['type_name']
@@ -262,48 +287,41 @@ def customer_registration(data:CustomerRegister,db = Depends(access_db)):
     try:
         with db:
             with db.cursor() as cursor:
-                cursor.execute("select type_name from employee_type where employee_type_id =(select employee_type from employee where employee_email = %s)",(data.your_email,))
+                cursor.execute("select type_name from employee_type where employee_type_id =(select employee_type from employee where employee_id = %s)",(data.emp_id,))
                 employee_type = cursor.fetchone()['type_name']
                 if employee_type == "Service Person":
                     raise HTTPException(
                         status_code=status.HTTP_401_UNAUTHORIZED,
                         detail="You have not permit"
                     )
-                agent = cursor.execute("select * from agent where agent_email = %s",(data.agent_email,))
-                if agent:
-                    cursor.execute("select * from customer where customer_email = %s",(data.email,))
-                    d = cursor.fetchone()
-                    if d:
-                        raise HTTPException(
-                            status_code=status.HTTP_409_CONFLICT,
-                            detail="Email already exist"
-                        )
-                    query = '''insert into customer(
-                    customer_name, 
-                    customer_email, 
-                    customer_mobile_number, 
-                    customer_company_name, 
-                    customer_city, 
-                    customer_state, 
-                    customer_country, 
-                    customer_address
-                    ) values (%s,%s,%s,%s,%s,%s,%s,%s)'''
-                    values = (data.name,
-                              data.email,
-                              data.mobile_number,
-                              data.company_name,
-                              data.city,
-                              data.state,
-                              data.country,
-                              data.address)
-                    cursor.execute(query,values)
-                    db.commit()
-                    return {"status_code":status.HTTP_201_CREATED, "message":"Customer registered"}
-                else:
+                cursor.execute("select * from customer where customer_email = %s",(data.email,))
+                d = cursor.fetchone()
+                if d:
                     raise HTTPException(
-                            status_code=status.HTTP_404_NOT_FOUND,
-                            detail="Agent not found",
-                        )
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="Email already exist"
+                    )
+                query = '''insert into customer(
+                customer_name, 
+                customer_email, 
+                customer_mobile_number, 
+                customer_company_name, 
+                customer_city, 
+                customer_state, 
+                customer_country, 
+                customer_address
+                ) values (%s,%s,%s,%s,%s,%s,%s,%s)'''
+                values = (data.name,
+                          data.email,
+                          data.mobile_number,
+                          data.company_name,
+                          data.city,
+                          data.state,
+                          data.country,
+                          data.address)
+                cursor.execute(query,values)
+                db.commit()
+                return {"status_code":status.HTTP_201_CREATED, "message":"Customer registered"}
     except Exception as e:
         raise HTTPException(
         status_code=500,
@@ -312,35 +330,35 @@ def customer_registration(data:CustomerRegister,db = Depends(access_db)):
 
 
 # @app.post("/customer_login")
-# # def customer_login(data: Login,db = Depends(access_db)):
-# #     try:
-# #         c = db.cursor()
-# #         c.execute("select customer_email,customer_password from customer where customer_email = %s",(data.email,))
-# #         d = c.fetchone()
+# def customer_login(data: Login,db = Depends(access_db)):
+#     try:
+#         c = db.cursor()
+#         c.execute("select customer_email,customer_password from customer where customer_email = %s",(data.email,))
+#         d = c.fetchone()
         
-# #         if d is None:
-# #             raise HTTPException(
-# #                 status_code=status.HTTP_401_UNAUTHORIZED,
-# #                 detail="Invalid email"
-# #             )
+#         if d is None:
+#             raise HTTPException(
+#                 status_code=status.HTTP_401_UNAUTHORIZED,
+#                 detail="Invalid email"
+#             )
 
-# #         if data.password != d["customer_password"]:
-# #             raise HTTPException(
-# #                 status_code=status.HTTP_401_UNAUTHORIZED,
-# #                 detail="Invalid password"
-# #             )
+#         if data.password != d["customer_password"]:
+#             raise HTTPException(
+#                 status_code=status.HTTP_401_UNAUTHORIZED,
+#                 detail="Invalid password"
+#             )
 
-# #         print("success")
-# #         return {"message": "Login successful"}
-# #     except Exception as e:
-# #         return e
+#         print("success")
+#         return {"message": "Login successful"}
+#     except Exception as e:
+#         return e
 
 @app.put("/update_customer")
 def update_customer(data : CustomerRegister,db = Depends(access_db)):
     try:
         with db:
             with db.cursor() as cursor:
-                cursor.execute("select type_name from employee_type where employee_type_id =(select employee_type from employee where employee_email = %s)",(data.your_email,))
+                cursor.execute("select type_name from employee_type where employee_type_id =(select employee_type from employee where employee_id = %s)",(data.emp_id,))
                 employee_type = cursor.fetchone()['type_name']
                 if employee_type == "Service Person":
                     raise HTTPException(
@@ -392,14 +410,14 @@ def remove_customer(data = DeleteUser,db = Depends(access_db)):
     try:
         with db:
             with db.cursor() as cursor:
-                cursor.execute("select type_name from employee_type where employee_type_id =(select employee_type from employee where employee_email = %s)",(data.your_email,))
+                cursor.execute("select type_name from employee_type where employee_type_id =(select employee_type from employee where employee_id = %s)",(data.emp_id,))
                 senior_type = cursor.fetchone()['type_name']
                 if senior_type == "Service Person":
                     raise HTTPException(
                         status_code=status.HTTP_401_UNAUTHORIZED,
                         detail="You have not permit"
                     )
-                cursor.execute("select type_name from employee_type where employee_type_id =(select employee_type from employee where employee_email = %s)",(data.your_email,))
+                cursor.execute("select type_name from employee_type where employee_type_id =(select employee_type from employee where employee_id = %s)",(data.emp_id,))
                 employee_type = cursor.fetchone()['type_name']
                 if employee_type == "Service Person":
                     raise HTTPException(
@@ -421,4 +439,170 @@ def remove_customer(data = DeleteUser,db = Depends(access_db)):
         status_code=500,
         detail=str(e)
     )
+
+
+
+# -------------------------------------- Ticket ----------------------------------------------
+
+@app.get("/all_tickets")
+def fetch_all_tickets(db = Depends(access_db)):
+    try:
+        with db:
+            with db.cursor() as cursor:
+                cursor.execute("select * from ticket")
+                d = cursor.fetchall()
+                if d:
+                    return d
+                else:
+                    raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail="Ticket not found"
+                        )
+    except Exception as e:
+        raise HTTPException(
+        status_code=500,
+        detail=str(e)
+    )
+    
+@app.post("/ticket_registration")
+def ticket_registration(data:TicketRegister,db = Depends(access_db)):
+    try:
+        with db:
+            with db.cursor() as cursor:
+                agent = cursor.execute("select employee_type from employee where employee_id = %s",(data.creater_emp_id,))
+                if agent:
+                    cursor.execute("select type_name from employee_type where employee_type_id =(select employee_type from employee where employee_id = %s)",(data.creater_emp_id,))
+                    employee_type = cursor.fetchone()['type_name']
+                    if employee_type == "Service Person":
+                        raise HTTPException(
+                            status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail="You have not permit"
+                        )
+                    customer = cursor.execute("select customer_id from customer where customer_email = %s",(data.customer_email,))
+                    if customer:
+                        query = '''insert into ticket(
+                        issue_title,
+                        issue_type,
+                        issue_description,
+                        priority,
+                        reason,
+                        generate_datetime,
+                        ticket_status,
+                        creater_emp_id,
+                        customer_id
+                        ) values (%s,%s,%s,%s,%s,%s,%s,%s,%s)'''
+                        values = (data.issue_title,
+                            data.issue_type,
+                            data.issue_description,
+                            data.priority,
+                            data.reason,
+                            data.generate_datetime,
+                            data.ticket_status,
+                            data.creater_emp_id,
+                            customer)
+                        cursor.execute(query,values)
+                        db.commit()
+                        return {"status_code":status.HTTP_201_CREATED, "message":"Ticket generated"}
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Customer not found",
+                    ) 
+                raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Employee not found",
+                    )
+    except Exception as e:
+        raise HTTPException(
+        status_code=500,
+        detail=str(e)
+    )
+
+
+@app.put("/update_ticket")
+def update_ticket(data : TicketUpdate,db = Depends(access_db)):
+    try:
+        with db:
+            with db.cursor() as cursor:
+                cursor.execute("select ticket_id from ticket where ticket_id = %s",(data.ticket_id,))
+                d = cursor.fetchone()
+                if d:
+                    cursor.execute("select employee_type from employee where employee_id = %s",(data.service_person_emp_id,))
+                    e = cursor.fetchone()
+                    if e:
+                        query = '''update ticket set 
+                        service_person_emp_id = %s,
+                        issue_type = %s,
+                        issue_description = %s,
+                        priority = %s,
+                        reason = %s,
+                        ticket_status = %s
+                        where ticket_id = %s'''
+                        values = (data.service_person_emp_id,
+                                  data.issue_type,
+                                  data.issue_description,
+                                  data.priority,
+                                  data.reason,
+                                  data.ticket_status,
+                                  data.ticket_id)
+                        cursor.execute(query,(values))
+                        print(1)
+                        db.commit()
+                        raise HTTPException(
+                            status_code=status.HTTP_202_ACCEPTED,
+                            detail={"Message":"Ticket Updated!"}
+                            )
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail={
+                            "message": "Employee not exist",
+                            "success": False
+                        }
+                    )
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail={
+                        "message": "Ticket not exist",
+                        "success": False
+                    }
+                )
+    except Exception as e:
+        raise HTTPException(
+        status_code=500,
+        detail=str(e)
+    )
+
+# @app.delete("/remove_customer")
+# def remove_customer(data = DeleteUser,db = Depends(access_db)):
+#     try:
+#         with db:
+#             with db.cursor() as cursor:
+#                 cursor.execute("select type_name from employee_type where employee_type_id =(select employee_type from employee where employee_id = %s)",(data.emp_id,))
+#                 senior_type = cursor.fetchone()['type_name']
+#                 if senior_type == "Service Person":
+#                     raise HTTPException(
+#                         status_code=status.HTTP_401_UNAUTHORIZED,
+#                         detail="You have not permit"
+#                     )
+#                 cursor.execute("select type_name from employee_type where employee_type_id =(select employee_type from employee where employee_id = %s)",(data.emp_id,))
+#                 employee_type = cursor.fetchone()['type_name']
+#                 if employee_type == "Service Person":
+#                     raise HTTPException(
+#                         status_code=status.HTTP_401_UNAUTHORIZED,
+#                         detail="You have not permit"
+#                     )
+#                 cursor.execute("select customer_email from customer where customer_email = %s",(data.email,))
+#                 d = cursor.fetchone()
+#                 if d:
+#                     cursor.execute("delete from customer where customer_email = %s",(data.email))
+#                     db.commit()
+#                     return status.HTTP_200_OK
+#                 raise HTTPException(
+#                     status_code=status.HTTP_404_NOT_FOUND,
+#                     detail="Email not exist"
+#                 )
+#     except Exception as e:
+#         raise HTTPException(
+#         status_code=500,
+#         detail=str(e)
+#     )
 

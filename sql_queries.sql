@@ -98,27 +98,72 @@ create table ticket(
     generate_datetime datetime,
     solve_datetime datetime,
     ticket_status enum("Open","In_Progress","Close"),
-    employee_id int,
+    service_person_emp_id int,
+    creater_emp_id int,
     customer_id int,
     foreign key (customer_id) references customer(customer_id),
-    foreign key (employee_id) references employee(employee_id)
+    foreign key (service_person_emp_id) references employee(employee_id),
+    foreign key (creater_emp_id) references employee(employee_id)
 );
 drop table ticket;
 
-create table ticket_log(
-	ticket_log_id int auto_increment primary key,
-    ticket_id int,
-    ticket_status enum("Open","In_Progress","Close"),
-    ticket_log_datetime datetime,
-    update_person_type varchar(20),
-    update_person_id int,
-    foreign key (ticket_id) references ticket(ticket_id)
+CREATE TABLE ticket_log (
+    ticket_log_id INT AUTO_INCREMENT PRIMARY KEY,
+    ticket_id INT NOT NULL,
+    old_ticket_status ENUM('Open','In_Progress','Close') NOT NULL,
+    new_ticket_status ENUM('Open','In_Progress','Close') NOT NULL,
+    old_priority enum("High","Medium","Low"),
+    new_priority enum("High","Medium","Low"),
+    ticket_log_datetime DATETIME DEFAULT CURRENT_TIMESTAMP,
+    employee_id INT NOT NULL,
+
+    FOREIGN KEY (ticket_id) REFERENCES ticket(ticket_id),
+    FOREIGN KEY (employee_id) REFERENCES employee(employee_id)
 );
+
 drop table ticket_log;
 
 insert into employee_type(employee_type_id,type_name) values (1,"Admin"),(2,"Agent"),(3,"Service Person");
 
 
+DELIMITER $$
+
+CREATE TRIGGER ticket_after_update
+AFTER UPDATE ON ticket
+FOR EACH ROW
+BEGIN
+    -- IF OLD.ticket_status <> NEW.ticket_status
+--        AND NEW.service_person_emp_id IS NOT NULL THEN
+
+        INSERT INTO ticket_log (
+            ticket_id,
+            new_ticket_status,
+            old_ticket_status,
+            new_priority,
+            old_priority,
+            employee_id
+        )
+        VALUES (
+            NEW.ticket_id,
+            NEW.ticket_status,
+            OLD.ticket_status,
+            NEW.priority,
+            old.priority,
+            NEW.service_person_emp_id
+        );
+
+        -- auto set solve time when closed
+        IF NEW.ticket_status = 'Close' THEN
+            UPDATE ticket
+            SET solve_datetime = NOW()
+            WHERE ticket_id = NEW.ticket_id;
+        END IF;
+
+    -- END IF;
+END$$
+
+DELIMITER ;
+drop trigger ticket_after_update;
 
 -- create procedure
 -- create trigger ticket_create_trigger
