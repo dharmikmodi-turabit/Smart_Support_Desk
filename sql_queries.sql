@@ -128,12 +128,11 @@ insert into employee_type(employee_type_id,type_name) values (1,"Admin"),(2,"Age
 
 DELIMITER $$
 
-CREATE TRIGGER ticket_after_update
-AFTER UPDATE ON ticket
+CREATE TRIGGER ticket_before_update
+BEFORE UPDATE ON ticket
 FOR EACH ROW
 BEGIN
-    -- IF OLD.ticket_status <> NEW.ticket_status
---        AND NEW.service_person_emp_id IS NOT NULL THEN
+    -- Only log if something important changed
 
         INSERT INTO ticket_log (
             ticket_id,
@@ -148,22 +147,21 @@ BEGIN
             NEW.ticket_status,
             OLD.ticket_status,
             NEW.priority,
-            old.priority,
+            OLD.priority,
             NEW.service_person_emp_id
         );
 
-        -- auto set solve time when closed
-        IF NEW.ticket_status = 'Close' THEN
-            UPDATE ticket
-            SET solve_datetime = NOW()
-            WHERE ticket_id = NEW.ticket_id;
-        END IF;
 
-    -- END IF;
+    -- Auto set solve_datetime when ticket is closed
+    IF NEW.ticket_status = 'Close' AND OLD.ticket_status <> 'Close' THEN
+        SET NEW.solve_datetime = NOW();
+    END IF;
+
 END$$
 
 DELIMITER ;
-drop trigger ticket_after_update;
+
+drop trigger ticket_before_update;
 
 -- create procedure
 -- create trigger ticket_create_trigger

@@ -7,10 +7,20 @@ from enum import Enum
 from datetime import datetime
 from auth import create_access_token
 from redis_client import redis_client
-from dependencies import get_current_user,admin_required, admin_agent_required, HTTPAuthorizationCredentials, security
+from dependencies import get_current_user,admin_required, admin_agent_required, HTTPAuthorizationCredentials, security, service_person_required, employee_create_permission
 from fastapi.security import HTTPAuthorizationCredentials
 from dotenv import load_dotenv
-import os
+from fastapi.middleware.cors import CORSMiddleware
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 load_dotenv()
 
@@ -74,49 +84,55 @@ class TicketUpdate(BaseModel):
     reason : Optional[str] = None
     ticket_status : Optional[TicketStatus] = None
 
-app = FastAPI()
 
 # -------------------------------------- Employee ----------------------------------------------
 @app.post("/employee_registration", tags=["Employee"])
-def employee_registration(data:EmployeeRegister,user=Depends(admin_required),db = Depends(access_db)):
-    try:
-        with db:
-            with db.cursor() as cursor:
-                cursor.execute("select * from employee where employee_email = %s",(data.email,))
-                d = cursor.fetchone()
-                if d:
-                    raise HTTPException(
-                        status_code = status.HTTP_409_CONFLICT,
-                        detail="Email already exist"
-                    )
-                if len(data.mobile_number) != 10:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Mobile Number is not valid"
-                    )
-                cursor.execute("select employee_type_id from employee_type where type_name=%s",(data.type,))
-                type_id = cursor.fetchone()["employee_type_id"]
-                query = '''
-                        insert into employee(
-                        employee_name, 
-                        employee_email, 
-                        employee_mobile_number, 
-                        employee_password, 
-                        employee_type
-                        ) values (%s,%s,%s,%s,%s)
-                    '''
-                values = (data.name,data.email,data.mobile_number,data.password,type_id)
-                cursor.execute(query,values)
-                db.commit()
-                raise HTTPException(
-                    status_code=status.HTTP_201_CREATED,
-                    detail="Employee registered"
-                )
-    except Exception as e:
+def employee_registration(
+    data: EmployeeRegister,
+    user=Depends(employee_create_permission),
+    db=Depends(access_db)
+):
+    creator_role = user["role"]
+
+    # AGENT RESTRICTION
+    if creator_role == "Agent" and data.type != UserRole.service_person:
         raise HTTPException(
-        status_code=500,
-        detail=str(e)
-    )
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Agent can only register Service Person"
+        )
+
+    # ADMIN CAN REGISTER ANY
+    if creator_role == "Admin":
+        pass
+
+    # SERVICE PERSON BLOCKED ALREADY BY DEPENDENCY
+
+    # ---- EXISTING LOGIC ----
+    with db:
+        with db.cursor() as cursor:
+            cursor.execute(
+                "select 1 from employee where employee_email=%s",
+                (data.email,)
+            )
+            if cursor.fetchone():
+                raise HTTPException(409, "Email already exists")
+
+            cursor.execute(
+                "select employee_type_id from employee_type where type_name=%s",
+                (data.type.value,)
+            )
+            type_id = cursor.fetchone()["employee_type_id"]
+
+            cursor.execute(
+                """insert into employee
+                (employee_name, employee_email, employee_mobile_number,
+                 employee_password, employee_type)
+                values (%s,%s,%s,%s,%s)""",
+                (data.name, data.email, data.mobile_number, data.password, type_id)
+            )
+            db.commit()
+
+    return {"message": "Employee registered successfully"}
 
 @app.get("/all_employees", tags=["Employee"])
 def fetch_all_employees(user=Depends(admin_required),db = Depends(access_db)):
@@ -149,7 +165,6 @@ def employee_login(data: Login, db=Depends(access_db)):
                 WHERE e.employee_email = %s
             """, (data.email,))
         user = c.fetchone()
-        print(user)
 
         if not user or user["employee_password"] != data.password:
             raise HTTPException(status_code=401, detail="Invalid credentials")
@@ -184,12 +199,13 @@ def update_employee(data : EmployeeRegister,user=Depends(admin_required),db = De
                 cursor.execute("select employee_type_id from employee_type where type_name=%s",(data.type,))
                 type_id = cursor.fetchone()["employee_type_id"]
                 if d:
+                    print(data.name == "")
                     values = (
-                        data.name if data.name is not None else d['employee_name'],
-                        data.mobile_number if data.mobile_number is not None else d['employee_mobile_number'],
-                        data.password if data.password is not None else d['employee_password'],
-                        type_id if data.type is not None else d['employee_type'],
-                        data.email if data.email is not None else d['employee_email'])
+                        data.name if data.name != "" else d['employee_name'],
+                        data.mobile_number if data.mobile_number != "" else d['employee_mobile_number'],
+                        data.password if data.password != "" else d['employee_password'],
+                        type_id if data.type != "" else d['employee_type'],
+                        data.email if data.email != "" else d['employee_email'])
                     cursor.execute("update employee set employee_name=%s,employee_mobile_number=%s,employee_password=%s,employee_type=%s where employee_email=%s",values)
                     db.commit()
                     return status.HTTP_202_ACCEPTED
@@ -229,7 +245,7 @@ def remove_employee(data : DeleteUser,user=Depends(admin_required),db = Depends(
 
 
 
-# -------------------------------------- customer ----------------------------------------------
+# -------------------------------------- Customer ----------------------------------------------
 
 @app.get("/all_customers", tags=["Customer"])
 def fetch_all_customers(user=Depends(admin_agent_required),db = Depends(access_db)):
@@ -297,28 +313,46 @@ def customer_registration(data:CustomerRegister,user=Depends(admin_agent_require
         detail=str(e)
     )
 
-@app.post("/customer_login", tags=["Customer"])
-def customer_login(data : CustomerLogin,db = Depends(access_db)):
-    try:
-        c = db.cursor()
-        c.execute("""
-                SELECT 
-                    customer_id,
-                    customer_email
-                FROM customer
-                WHERE customer_email = %s 
-                  OR customer_mobile_number = %s
-            """, (data.email_or_mobile,data.email_or_mobile))
-        user = c.fetchone()
-        if not user:
-            raise HTTPException(status_code=401, detail="Customer not registered")
-        return user
+# @app.post("/customer_login", tags=["Customer"])
+# def customer_login(data : CustomerLogin,db = Depends(access_db)):
+#     try:
+#         c = db.cursor()
+#         c.execute("""
+#                 SELECT 
+#                     customer_id,
+#                     customer_email
+#                 FROM customer
+#                 WHERE customer_email = %s 
+#                   OR customer_mobile_number = %s
+#             """, (data.email_or_mobile,data.email_or_mobile))
+#         user = c.fetchone()
+#         if not user:
+#             raise HTTPException(status_code=401, detail="Customer not registered")
+#         return user
 
-    except Exception as e:
-        raise HTTPException(
-        status_code=500,
-        detail=str(e)
-    )
+#     except Exception as e:
+#         raise HTTPException(
+#         status_code=500,
+#         detail=str(e)
+#     )
+
+@app.post("/customer_login")
+def customer_login(data: CustomerLogin, db=Depends(access_db)):
+    cursor = db.cursor()
+    cursor.execute("""
+        select customer_id, customer_email
+        from customer
+        where customer_email=%s or customer_mobile_number=%s
+    """, (data.email_or_mobile, data.email_or_mobile))
+
+    customer = cursor.fetchone()
+    if not customer:
+        raise HTTPException(401, "Invalid customer")
+
+    return {"access_token": create_access_token({
+        "customer_id": customer["customer_id"],
+        "role": "Customer"
+    })}
 
 
 @app.put("/update_customer", tags=["Customer"])
@@ -326,7 +360,7 @@ def update_customer(data : CustomerRegister,user=Depends(admin_agent_required),d
     try:
         with db:
             with db.cursor() as cursor:
-                cursor.execute("select customer_email from customer where customer_email = %s",(data.email,))
+                cursor.execute("select * from customer where customer_email = %s",(data.email,))
                 d = cursor.fetchone()
                 if d:
                     query = '''update customer set 
@@ -338,13 +372,13 @@ def update_customer(data : CustomerRegister,user=Depends(admin_agent_required),d
                     customer_country = %s, 
                     customer_address = %s 
                     where customer_email = %s'''
-                    values = (data.name,
-                              data.mobile_number,
-                              data.company_name,
-                              data.city,
-                              data.state,
-                              data.country,
-                              data.address,
+                    values = (data.name if data.name != "" else d['customer_name'],
+                              data.mobile_number if data.mobile_number != "" else d['customer_mobile_number'],
+                              data.company_name if data.company_name != "" else d['customer_company_name'],
+                              data.city if data.city != "" else d['customer_city'],
+                              data.state if data.state != "" else d['customer_state'],
+                              data.country if data.country != "" else d['customer_country'],
+                              data.address if data.address != "" else d['customer_address'],
                               data.email)
                     cursor.execute(query,values)
                     print(1)
@@ -363,7 +397,7 @@ def update_customer(data : CustomerRegister,user=Depends(admin_agent_required),d
     except Exception as e:
         raise HTTPException(
         status_code=500,
-        detail=str(e)
+        detail="dharmik"+str(e)
     )
 
 @app.delete("/remove_customer", tags=["Customer"])
@@ -399,7 +433,7 @@ def remove_customer(data = DeleteUser,user=Depends(admin_required),db = Depends(
 # -------------------------------------- Ticket ----------------------------------------------
 
 @app.get("/all_tickets", tags=["Ticket"])
-def fetch_all_tickets(user=Depends(admin_required),db = Depends(access_db)):
+def fetch_all_tickets(user=Depends(admin_agent_required),db = Depends(access_db)):
     try:
         with db:
             with db.cursor() as cursor:
@@ -425,6 +459,7 @@ def ticket_registration(data:TicketRegister,user=Depends(admin_agent_required),d
             with db.cursor() as cursor:
                 customer = cursor.execute("select customer_id from customer where customer_email = %s",(data.customer_email,))
                 if customer:
+                    customer = customer.fetchone()
                     query = '''insert into ticket(
                     issue_title,
                     issue_type,
@@ -438,11 +473,11 @@ def ticket_registration(data:TicketRegister,user=Depends(admin_agent_required),d
                     values = (data.issue_title,
                         data.issue_type,
                         data.issue_description,
-                        data.priority,
+                        data.priority.value,
                         data.generate_datetime,
                         "Open",
-                        data.creater_emp_id,
-                        customer)
+                        user["emp_id"],
+                        customer["customer_id"])
                     cursor.execute(query,values)
                     db.commit()
                     return {"status_code":status.HTTP_201_CREATED, "message":"Ticket generated"}
@@ -479,11 +514,11 @@ def update_ticket(data : TicketUpdate,db = Depends(access_db)):
                         values = (data.service_person_emp_id,
                                   data.issue_type if data.issue_type else d['issue_type'],
                                   data.issue_description if data.issue_description else d['issue_description'],
-                                  data.priority if data.priority else d['priority'],
+                                  data.priority.value if data.priority.value else d['priority'],
                                   data.reason if data.reason else d['reason'],
-                                  data.ticket_status if data.ticket_status else d['ticket_status'],
+                                  data.ticket_status.value if data.ticket_status.value else d['ticket_status'],
                                   data.ticket_id)
-                        cursor.execute(query,(values))
+                        cursor.execute(query,values)
                         db.commit()
                         raise HTTPException(
                             status_code=status.HTTP_202_ACCEPTED,
@@ -544,6 +579,45 @@ def ticket_analysis_per_emp(emp_id:int,db = Depends(access_db)):
         status_code=500,
         detail=str(e)
     )
+
+@app.get("/my_tickets")
+def my_tickets(user=Depends(get_current_user), db=Depends(access_db)):
+    cursor = db.cursor()
+    print(user)
+    cursor.execute(
+        "select * from ticket where service_person_emp_id=%s",
+        (user["emp_id"],)
+    )
+    return cursor.fetchall()
+
+@app.get("/profile")
+def profile(user=Depends(get_current_user), db=Depends(access_db)):
+    emp_id = user["emp_id"]
+
+    cursor = db.cursor()
+    cursor.execute(
+        "select count(*) as total from ticket where service_person_emp_id=%s",
+        (emp_id,)
+    )
+    total = cursor.fetchone()["total"]
+
+    cursor.execute(
+        "select count(*) as open from ticket where ticket_status='Open' and service_person_emp_id=%s",
+        (emp_id,)
+    )
+    open_t = cursor.fetchone()["open"]
+
+    cursor.execute(
+        "select count(*) as closed from ticket where ticket_status='Close' and service_person_emp_id=%s",
+        (emp_id,)
+    )
+    closed = cursor.fetchone()["closed"]
+
+    return {
+        "total": total,
+        "open": open_t,
+        "closed": closed
+    }
 
 
 @app.post("/logout", tags=["Logout"])

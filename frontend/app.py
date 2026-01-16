@@ -1,65 +1,128 @@
 import streamlit as st
-import requests
-import pymysql
+from auth import login, logout, customer_login
+from employee import employee_add, service_person_tickets, employee_view, employee_update
+from customer import customer_view, customer_add, customer_update
+from dashboard.employee import employee_dashboard
+from dashboard.customer import customer_dashboard
+from ticket import ticket_update, ticket_view, ticket_create
+import jwt
 
-def get_connection():
-    return pymysql.connect(
-        host="localhost",
-        user="root",
-        password="root",
-        database="smart_support_desk",
-        cursorclass=pymysql.cursors.DictCursor,
-        autocommit=True
-    )
-st.set_page_config(page_title="Login")
+def get_role(token):
+    payload = jwt.decode(token, options={"verify_signature": False})
+    return payload["role"]
 
-conn = get_connection()
-cursor = conn.cursor()
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-st.title("Login")
-email = st.text_input("email")
-password = st.text_input("Password", type="password")
-st.set_page_config(
-    page_title="Login",
-    # initial_sidebar_state="collapsed"
-    
-)
-if st.button("Login"):
-        res = requests.post(
-            "http://127.0.0.1:8000/login_admin",
-            json={"email": email, "password": password}
-        )
+def get_user(token):
+    return jwt.decode(token, options={"verify_signature": False})
 
-if res.status_code == 200:
-    st.session_state.logged_in = True
-    st.session_state.user_email = email
-    st.experimental_rerun()
+st.set_page_config(page_title="Smart Support Desk", layout="wide")
 
+if "token" not in st.session_state:
+    login_type = st.radio("Login As", ["Employee", "Customer"])
 
-        
-        # if st.session_state.logged_in:
-
-        #     st.sidebar.title("Smart Support Desk")
-
-        #     page = st.sidebar.radio(
-        #         "Navigation",
-        #         ["Home", "Tickets", "Profile"]
-        #     )
-
-        #     if page == "Home":
-        #         st.title("Home")
-        #         st.write("Welcome,", st.session_state.user_email)
-
-        #     elif page == "Tickets":
-        #         st.title("Tickets")
-
-        #     elif page == "Profile":
-        #         st.title("Profile")
-
-        #     if st.sidebar.button("Logout"):
-        #         st.session_state.logged_in = False
-        #         st.experimental_rerun()
+    if login_type == "Employee":
+        login()
+    else:
+        customer_login()
 
 else:
-    st.error("Invalid credentials")
+    user = get_user(st.session_state["token"])
+    role = get_role(st.session_state["token"])
+
+    # menu = []
+
+    # else:
+    #     st.error("Invalid role")
+    #     st.stop()
+    # page = st.sidebar.selectbox("Menu", menu)
+
+    # # ---------------- RENDER ----------------
+    # if page == "Customers":
+    #     customer_page()
+
+    # elif page == "Employees":
+    #     employee_page()
+
+    # elif page == "Tickets":
+    #     ticket_page()
+
+    # elif page == "Logout":
+    #     logout()
+
+    st.sidebar.title("Menu")
+
+    if role == "Admin":
+        menu = st.sidebar.radio(
+        "Main",["Dashboard","Employees", "Customers", "Tickets", "Logout"])
+
+    elif role == "Agent":
+        menu = st.sidebar.radio(
+        "Main",["Dashboard","Customers", "Tickets", "Logout"])
+
+    elif role == "Service Person":
+        menu = st.sidebar.radio(
+        "Main",["Dashboard","Tickets", "Logout"])
+    
+    else:
+        menu = st.sidebar.radio("Menu", ["My Tickets", "Create Ticket", "Logout"])
+
+        if menu == "My Tickets":
+            ticket_view()
+        elif menu == "Create Ticket":
+            ticket_create() 
+        elif menu == "Logout":
+            logout()
+    # menu = st.sidebar.radio(
+    #     "Main",
+    #     ["Dashboard", "Employees", "Customers", "Tickets", "Profile", "Logout"]
+    # )
+
+    sub_menu = None
+
+    if menu == "Employees":
+        sub_menu = st.sidebar.radio("Employees", ["View", "Add", "Update"])
+
+    elif menu == "Customers" and role in ["Admin", "Agent"]:
+        sub_menu = st.sidebar.radio("Customers", ["View", "Add", "Update"])
+
+    elif menu == "Tickets":
+        if role in ["Admin", "Agent"]:
+            sub_menu = st.sidebar.radio("Tickets", ["View", "Create"])
+        elif role == "Service Person":
+            sub_menu = st.sidebar.radio("Tickets", ["Assigned", "Update"])
+
+
+    if menu == "Dashboard":
+        if role == "Customer":
+            customer_dashboard(user)
+        else:
+            employee_dashboard(user)
+    elif menu == "Employees":
+        if sub_menu == "View":
+            employee_view()
+        elif sub_menu == "Add":
+            employee_add(role)
+        elif sub_menu == "Update":
+            employee_update()
+
+    elif menu == "Customers":
+        if sub_menu == "View":
+            customer_view()
+        elif sub_menu == "Add":
+            customer_add()
+        elif sub_menu == "Update":
+            customer_update()
+        
+
+    elif menu == "Tickets":
+        if sub_menu == "Assigned":
+            service_person_tickets()
+        elif sub_menu == "Update":
+            ticket_update()
+        elif sub_menu == "View":
+            ticket_view()
+        elif sub_menu == "Create":
+            ticket_create()
+    
+    elif menu == "Logout":
+        logout()
+
