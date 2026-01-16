@@ -9,11 +9,18 @@ from auth import create_access_token
 from redis_client import redis_client
 from dependencies import get_current_user,admin_required, admin_agent_required, HTTPAuthorizationCredentials, security
 from fastapi.security import HTTPAuthorizationCredentials
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
     
 class Login(BaseModel):
     email: str
     password: str
+
+class CustomerLogin(BaseModel):
+    email_or_mobile : str
 
 class UserRole(str, Enum):
     Admin = "Admin"
@@ -290,6 +297,30 @@ def customer_registration(data:CustomerRegister,user=Depends(admin_agent_require
         detail=str(e)
     )
 
+@app.post("/customer_login", tags=["Customer"])
+def customer_login(data : CustomerLogin,db = Depends(access_db)):
+    try:
+        c = db.cursor()
+        c.execute("""
+                SELECT 
+                    customer_id,
+                    customer_email
+                FROM customer
+                WHERE customer_email = %s 
+                  OR customer_mobile_number = %s
+            """, (data.email_or_mobile,data.email_or_mobile))
+        user = c.fetchone()
+        if not user:
+            raise HTTPException(status_code=401, detail="Customer not registered")
+        return user
+
+    except Exception as e:
+        raise HTTPException(
+        status_code=500,
+        detail=str(e)
+    )
+
+
 @app.put("/update_customer", tags=["Customer"])
 def update_customer(data : CustomerRegister,user=Depends(admin_agent_required),db = Depends(access_db)):
     try:
@@ -521,3 +552,5 @@ def logout(
 ):
     redis_client.delete(credentials.credentials)
     return {"message": "Logged out successfully"}
+
+
