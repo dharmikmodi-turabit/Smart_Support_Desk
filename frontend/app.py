@@ -6,6 +6,7 @@ from dashboard.employee import employee_dashboard
 from dashboard.customer import customer_dashboard
 from ticket import ticket_update, ticket_view, ticket_create
 import jwt
+st.title("Smart Support Desk")
 
 def get_role(token):
     payload = jwt.decode(token, options={"verify_signature": False})
@@ -17,13 +18,21 @@ def get_user(token):
 st.set_page_config(page_title="Smart Support Desk", layout="wide")
 
 if "token" not in st.session_state:
-    login_type = st.radio("Login As", ["Employee", "Customer"])
+    st.header("Login")
+    # login_type = st.radio("Login As", ["Employee", "Customer"])
 
-    if login_type == "Employee":
+    # if login_type == "Employee":
+    #     login()
+    # else:
+    #     customer_login()
+
+    tab1, tab2  = st.tabs(["Employee", "Customer"])
+
+    with tab1:
         login()
-    else:
-        customer_login()
 
+    with tab2:
+        customer_login()
 else:
     user = get_user(st.session_state["token"])
     role = get_role(st.session_state["token"])

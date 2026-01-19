@@ -199,7 +199,6 @@ def update_employee(data : EmployeeRegister,user=Depends(admin_required),db = De
                 cursor.execute("select employee_type_id from employee_type where type_name=%s",(data.type,))
                 type_id = cursor.fetchone()["employee_type_id"]
                 if d:
-                    print(data.name == "")
                     values = (
                         data.name if data.name != "" else d['employee_name'],
                         data.mobile_number if data.mobile_number != "" else d['employee_mobile_number'],
@@ -381,7 +380,6 @@ def update_customer(data : CustomerRegister,user=Depends(admin_agent_required),d
                               data.address if data.address != "" else d['customer_address'],
                               data.email)
                     cursor.execute(query,values)
-                    print(1)
                     db.commit()
                     return HTTPException(
                         status_code=status.HTTP_202_ACCEPTED,
@@ -459,7 +457,7 @@ def ticket_registration(data:TicketRegister,user=Depends(admin_agent_required),d
             with db.cursor() as cursor:
                 customer = cursor.execute("select customer_id from customer where customer_email = %s",(data.customer_email,))
                 if customer:
-                    customer = customer.fetchone()
+                    customer = cursor.fetchone()
                     query = '''insert into ticket(
                     issue_title,
                     issue_type,
@@ -477,6 +475,44 @@ def ticket_registration(data:TicketRegister,user=Depends(admin_agent_required),d
                         data.generate_datetime,
                         "Open",
                         user["emp_id"],
+                        customer["customer_id"])
+                    cursor.execute(query,values)
+                    db.commit()
+                    return {"status_code":status.HTTP_201_CREATED, "message":"Ticket generated"}
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Customer not found",
+                ) 
+    except Exception as e:
+        raise HTTPException(
+        status_code=500,
+        detail=str(e)
+    )
+@app.post("/ticket_registration_gform", tags=["Ticket"])
+def ticket_registration_gform(data:TicketRegister,db = Depends(access_db)):
+    try:
+        with db:
+            with db.cursor() as cursor:
+                customer = cursor.execute("select customer_id from customer where customer_email = %s",(data.customer_email,))
+                if customer:
+                    customer = cursor.fetchone()
+                    query = '''insert into ticket(
+                    issue_title,
+                    issue_type,
+                    issue_description,
+                    priority,
+                    generate_datetime,
+                    ticket_status,
+                    creater_emp_id,
+                    customer_id
+                    ) values (%s,%s,%s,%s,%s,%s,%s,%s)'''
+                    values = (data.issue_title,
+                        data.issue_type,
+                        data.issue_description,
+                        data.priority.value,
+                        data.generate_datetime,
+                        "Open",
+                        1,
                         customer["customer_id"])
                     cursor.execute(query,values)
                     db.commit()
@@ -561,9 +597,6 @@ def ticket_analysis_per_emp(emp_id:int,db = Depends(access_db)):
                     Opened_ticket_count = cursor.execute("select * from ticket where ticket_status = %s","Open")
                     in_progress_ticket_count = cursor.execute("select * from ticket where ticket_status = %s","In_Progress")
                     Closed_ticket_count = cursor.execute("select * from ticket where ticket_status = %s","Close")
-                    print(Opened_ticket_count)
-                    print(in_progress_ticket_count)
-                    print(Closed_ticket_count)
                     return {
                         "total_ticket_count":total_ticket_count,
                         "Opened_ticket_count":Opened_ticket_count,
@@ -583,7 +616,6 @@ def ticket_analysis_per_emp(emp_id:int,db = Depends(access_db)):
 @app.get("/my_tickets")
 def my_tickets(user=Depends(get_current_user), db=Depends(access_db)):
     cursor = db.cursor()
-    print(user)
     cursor.execute(
         "select * from ticket where service_person_emp_id=%s",
         (user["emp_id"],)

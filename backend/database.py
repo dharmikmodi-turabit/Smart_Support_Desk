@@ -1,4 +1,5 @@
 import pymysql
+from fastapi.exceptions import HTTPException
 
 # def get_db():
 #     conn = pymysql.connect(
@@ -14,9 +15,15 @@ import pymysql
 #         conn.close()
 
 def access_db():
-    connection = pymysql.connect(host='localhost',
+    try:
+        connection = pymysql.connect(host='localhost',
                              user='root',
                              password='root',
                              database='smart_support_desk',
                              cursorclass=pymysql.cursors.DictCursor)
-    return connection
+        return connection
+    except Exception as e:
+        raise HTTPException(
+        status_code=500,
+        detail=str(e)
+    )

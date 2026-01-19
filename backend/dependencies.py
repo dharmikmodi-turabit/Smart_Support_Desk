@@ -26,36 +26,60 @@ def get_current_user(credentials=Depends(security)):
         )
 
 def admin_required(user=Depends(get_current_user)):
-    if user["role"] != "Admin":
+    try:
+        if user["role"] != "Admin":
+            raise HTTPException(
+                status_code=403,
+                detail="Admin access required"
+            )
+        return user
+    except Exception as e:
         raise HTTPException(
-            status_code=403,
-            detail="Admin access required"
-        )
-    return user
+        status_code=500,
+        detail=str(e)
+    )
 
 def admin_agent_required(user=Depends(get_current_user)):
-    if user["role"] not in ["Admin","Agent"]:
+    try:
+        if user["role"] not in ["Admin","Agent"]:
+            raise HTTPException(
+                status_code=403,
+                detail="Admin or Agent access required"
+            )
+        return user
+    except Exception as e:
         raise HTTPException(
-            status_code=403,
-            detail="Admin or Agent access required"
-        )
-    return user
+        status_code=500,
+        detail=str(e)
+    )
 
 def service_person_required(user=Depends(get_current_user)):
-    if user["role"] != "Service Person":
+    try:
+        if user["role"] != "Service Person":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Service Person access required"
+            )
+        return user
+    except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Service Person access required"
-        )
-    return user
+        status_code=500,
+        detail=str(e)
+    )
 
 def employee_create_permission(user=Depends(get_current_user)):
-    role = user["role"]
+    try:
+        role = user["role"]
 
-    if role not in ["Admin", "Agent"]:
+        if role not in ["Admin", "Agent"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not allowed to create employees"
+            )
+
+        return user
+    except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not allowed to create employees"
-        )
-
-    return user
+        status_code=500,
+        detail=str(e)
+    )
