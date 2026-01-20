@@ -77,7 +77,7 @@ class TicketRegister(BaseModel):
 
 class TicketUpdate(BaseModel):
     ticket_id : int
-    service_person_emp_id : int
+    # service_person_emp_id : int
     issue_type : Optional[str] = None 
     issue_description : Optional[str] = None 
     priority : Optional[TicketPriority] = None 
@@ -349,7 +349,7 @@ def customer_login(data: CustomerLogin, db=Depends(access_db)):
         raise HTTPException(401, "Invalid customer")
 
     return {"access_token": create_access_token({
-        "customer_id": customer["customer_id"],
+        "emp_id": customer["customer_id"],
         "role": "Customer"
     })}
 
@@ -529,14 +529,14 @@ def ticket_registration_gform(data:TicketRegister,db = Depends(access_db)):
 
 
 @app.put("/update_ticket", tags=["Ticket"])
-def update_ticket(data : TicketUpdate,db = Depends(access_db)):
+def update_ticket(data : TicketUpdate,user = Depends(get_current_user),db = Depends(access_db)):
     try:
         with db:
             with db.cursor() as cursor:
                 cursor.execute("select * from ticket where ticket_id = %s",(data.ticket_id,))
                 d = cursor.fetchone()
                 if d:
-                    cursor.execute("select employee_type from employee where employee_id = %s",(data.service_person_emp_id,))
+                    cursor.execute("select employee_type from employee where employee_id = %s",(user["emp_id"],))
                     e = cursor.fetchone()
                     if e:
                         query = '''update ticket set 
@@ -547,7 +547,7 @@ def update_ticket(data : TicketUpdate,db = Depends(access_db)):
                         reason = %s,
                         ticket_status = %s
                         where ticket_id = %s'''
-                        values = (data.service_person_emp_id,
+                        values = (user["emp_id"],
                                   data.issue_type if data.issue_type else d['issue_type'],
                                   data.issue_description if data.issue_description else d['issue_description'],
                                   data.priority.value if data.priority.value else d['priority'],
@@ -556,22 +556,17 @@ def update_ticket(data : TicketUpdate,db = Depends(access_db)):
                                   data.ticket_id)
                         cursor.execute(query,values)
                         db.commit()
-                        raise HTTPException(
-                            status_code=status.HTTP_202_ACCEPTED,
-                            detail={"Message":"Ticket Updated!"}
-                            )
+                        return { 'status_code': status.HTTP_202_ACCEPTED, 'Message':"Ticket Updated!"}
                     raise HTTPException(
                         status_code=status.HTTP_404_NOT_FOUND,
                         detail={
-                            "message": "Employee not exist",
-                            "success": False
+                            "message": "Employee not exist"
                         }
                     )
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail={
-                        "message": "Ticket not exist",
-                        "success": False
+                        "message": "Ticket not exist"
                     }
                 )
     except Exception as e:

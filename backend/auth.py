@@ -4,7 +4,7 @@ from fastapi.exceptions import HTTPException
 
 SECRET_KEY = "SUPER_SECRET_KEY_CHANGE_THIS"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 10
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 def create_access_token(data: dict):
     try:
