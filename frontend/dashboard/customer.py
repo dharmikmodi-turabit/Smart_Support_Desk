@@ -1,57 +1,187 @@
 # import streamlit as st
 # from api import api_call
+# import pandas as pd
+# from ui import apply_global_style
 
 # def customer_dashboard(user):
-#     st.title("👤 Customer Dashboard")
+#     apply_global_style()
 
-#     st.info("Logged in as: **Customer**")
+#     st.header("👤 Customer Dashboard")
+#     st.caption(f"Welcome back, **{user.get('emp_id','Customer')}**")
 
-#     col1, col2 = st.columns(2)
+#     tickets = api_call("GET", "/customer_my_tickets", st.session_state["token"]) or []
 
-#     tickets = api_call("GET", "/my_tickets", st.session_state["token"]) or []
+#     open_tickets = [t for t in tickets if t["ticket_status"] == "Open"]
+#     closed_tickets = [t for t in tickets if t["ticket_status"] == "Close"]
 
-#     with col1:
-#         st.metric("Open Tickets", len([t for t in tickets if t["status"] == "Open"]))
-
-#     with col2:
-#         st.metric("Closed Tickets", len([t for t in tickets if t["status"] == "Closed"]))
+#     col1, col2, col3 = st.columns(3)
+#     col1.metric("🎫 Total Tickets", len(tickets))
+#     col2.metric("🟢 Open", len(open_tickets))
+#     col3.metric("✅ Closed", len(closed_tickets))
 
 #     st.divider()
 
-#     st.subheader("My Tickets")
-#     st.dataframe(tickets)
+#     st.subheader("📋 My Tickets")
+
+#     if tickets:
+#         df = pd.DataFrame(tickets)
+#         st.data_editor(
+#             df,
+#             use_container_width=True,
+#             hide_index=True,
+#             disabled=True
+#         )
+#     else:
+#         st.info("No tickets created yet")
+
 import streamlit as st
-from api import api_call
 import pandas as pd
+from api import api_call
 from ui import apply_global_style
+
 
 def customer_dashboard(user):
     apply_global_style()
 
     st.title("👤 Customer Dashboard")
-    st.caption(f"Welcome back, **{user.get('email','Customer')}**")
+    st.caption(f"Welcome back, **Customer #{user.get('emp_id')}**")
 
-    tickets = api_call("GET", "/my_tickets", st.session_state["token"]) or []
+    # ---------------- FETCH DATA ----------------
+    tickets = api_call(
+        "GET",
+        "/customer_my_tickets",
+        st.session_state["token"]
+    ) or []
 
-    open_tickets = [t for t in tickets if t["ticket_status"] == "Open"]
-    closed_tickets = [t for t in tickets if t["ticket_status"] == "Close"]
+    if not tickets:
+        st.info("🎫 No tickets created yet")
+        return
 
-    col1, col2, col3 = st.columns(3)
-    col1.metric("🎫 Total Tickets", len(tickets))
-    col2.metric("🟢 Open", len(open_tickets))
-    col3.metric("✅ Closed", len(closed_tickets))
+    df = pd.DataFrame(tickets)
+
+    # ---------------- KPIs ----------------
+    open_count = len(df[df["ticket_status"] == "Open"])
+    closed_count = len(df[df["ticket_status"] == "Close"])
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("🎫 Total Tickets", len(df))
+    c2.metric("🟢 Open Tickets", open_count)
+    c3.metric("✅ Closed Tickets", closed_count)
 
     st.divider()
 
+    # ---------------- FILTERS ----------------
+    st.subheader("🔎 Filter Tickets")
+
+    f1, f2, f3 = st.columns(3)
+
+    with f1:
+        status_filter = st.selectbox(
+            "Status",
+            ["All", "Open", "Close"]
+        )
+
+    with f2:
+        priority_filter = st.selectbox(
+            "Priority",
+            ["All"] + sorted(df["priority"].dropna().unique().tolist())
+        )
+
+    with f3:
+        search = st.text_input("Search (title / description)")
+
+    # ---------------- APPLY FILTERS ----------------
+    filtered_df = df.copy()
+
+    if status_filter != "All":
+        filtered_df = filtered_df[
+            filtered_df["ticket_status"] == status_filter
+        ]
+
+    if priority_filter != "All":
+        filtered_df = filtered_df[
+            filtered_df["priority"] == priority_filter
+        ]
+
+    if search:
+        filtered_df = filtered_df[
+            filtered_df["issue_title"].str.contains(search, case=False, na=False) |
+            filtered_df["issue_description"].str.contains(search, case=False, na=False)
+        ]
+
+    # ---------------- TABLE ----------------
     st.subheader("📋 My Tickets")
 
-    if tickets:
-        df = pd.DataFrame(tickets)
-        st.data_editor(
-            df,
-            use_container_width=True,
-            hide_index=True,
-            disabled=True
-        )
+    st.data_editor(
+        filtered_df[
+            [
+                "ticket_id",
+                "issue_title",
+                "priority",
+                "ticket_status",
+                "generate_datetime",
+            ]
+        ],
+        hide_index=True,
+        disabled=True,
+        use_container_width=True,
+    )
+
+    # ---------------- DETAILS VIEW ----------------
+    st.divider()
+    st.subheader("🔍 Ticket Details")
+
+    ticket_ids = filtered_df["ticket_id"].tolist()
+
+    selected_ticket = st.selectbox(
+        "Select a ticket to view details",
+        ticket_ids
+    )
+
+    ticket = df[df["ticket_id"] == selected_ticket].iloc[0]
+
+    st.markdown(f"""
+    **🆔 Ticket ID:** {ticket.ticket_id}  
+    **📌 Title:** {ticket.issue_title}  
+    **🔥 Priority:** {ticket.priority}  
+    **📊 Status:** {ticket.ticket_status}  
+    **🕒 Created:** {ticket.generate_datetime}  
+
+    **📝 Description:**  
+    {ticket.issue_description}
+    """)
+
+    ticket_chat_view(selected_ticket)
+
+
+def ticket_chat_view(ticket_id):
+
+    messages = api_call(
+        "GET",
+        f"/customer_ticket_messages/{ticket_id}",
+        st.session_state["token"]
+    ) or []
+    if messages:
+        st.subheader("💬 Ticket Conversation")
+        # ---------------- CHAT HISTORY ----------------
+        for msg in messages:
+            if msg["sender_role"] == "Customer":
+                with st.chat_message("user"):
+                    st.write(msg["message"])
+            else:
+                with st.chat_message("assistant"):
+                    st.write(msg["message"])
     else:
-        st.info("No tickets created yet")
+        pass
+
+    # ---------------- SEND MESSAGE ----------------
+    new_msg = st.chat_input("Type your message...")
+
+    if new_msg:
+        api_call(
+            "POST",
+            f"/customer_ticket_message/{ticket_id}",
+            st.session_state["token"],
+            json={"message": new_msg}
+        )
+        st.rerun()

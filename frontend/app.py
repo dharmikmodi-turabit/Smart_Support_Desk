@@ -120,7 +120,8 @@ from employee import employee_add, service_person_tickets, employee_view, employ
 from customer import customer_view, customer_add, customer_update
 from dashboard.employee import employee_dashboard
 from dashboard.customer import customer_dashboard
-from ticket import ticket_update, ticket_view, ticket_create
+from ticket import ticket_update, ticket_view, ticket_create, customer_ticket_view
+from employee import employee_chat_dashboard   # 👈 ADD THIS IMPORT
 
 
 # ---------------- CONFIG ----------------
@@ -160,7 +161,6 @@ else:
     user = get_user(st.session_state["token"])
     role = get_role(st.session_state["token"])
 
-
     # ---------------- SIDEBAR ----------------
     st.sidebar.title("📌 Navigation")
     st.sidebar.markdown(f"**Role:** `{role}`")
@@ -185,8 +185,8 @@ else:
             ("🚪 Logout", "logout"),
         ],
         "Customer": [
+            ("📊 Dashboard", "dashboard"),
             ("🎫 My Tickets", "my_tickets"),
-            ("➕ Create Ticket", "create_ticket"),
             ("🚪 Logout", "logout"),
         ],
     }
@@ -205,12 +205,10 @@ else:
 
     st.session_state.menu = selected
     menu = dict(zip(menu_labels, menu_keys))[selected]
-
-
-
     # ---------------- ROUTING ----------------
     if menu == "dashboard":
         if role == "Customer":
+            print(1)
             customer_dashboard(user)
         else:
             employee_dashboard(user)
@@ -236,13 +234,20 @@ else:
             customer_update()
 
 
+
     elif menu == "tickets":
         if role in ["Admin", "Agent"]:
-            tab = st.tabs(["👁 View", "➕ Create"])
+            tab = st.tabs(["👁 View", "💬 Conversations", "➕ Create"])
+
             with tab[0]:
                 ticket_view()
+
             with tab[1]:
+                employee_chat_dashboard()   # 👈 THIS IS THE CONNECTION
+
+            with tab[2]:
                 ticket_create()
+
 
         elif role == "Service Person":
             tab = st.tabs(["📋 Assigned", "✏ Update"])
@@ -253,7 +258,10 @@ else:
 
 
     elif menu == "my_tickets":
-        ticket_view()
+        if role == "Customer":
+            customer_ticket_view()
+        else:
+            ticket_view()
 
 
     elif menu == "create_ticket":

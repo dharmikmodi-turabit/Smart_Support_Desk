@@ -25,6 +25,45 @@ def get_current_user(credentials=Depends(security)):
             detail="Invalid token"
         )
 
+def customer_required(credentials=Depends(security)):
+    token = credentials.credentials
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+
+        if payload.get("role") != "Customer":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Customer access only"
+            )
+
+        return payload
+
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token"
+        )
+def agent_customer_required(credentials=Depends(security)):
+    token = credentials.credentials
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+
+        if payload.get("role") not in ["Customer", "Agent"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Customer access only"
+            )
+
+        return payload
+
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token"
+        )
+
 def admin_required(user=Depends(get_current_user)):
     try:
         if user["role"] != "Admin":

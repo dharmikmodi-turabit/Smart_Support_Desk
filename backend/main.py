@@ -7,7 +7,7 @@ from enum import Enum
 from datetime import datetime
 from auth import create_access_token
 from redis_client import redis_client
-from dependencies import get_current_user,admin_required, admin_agent_required, HTTPAuthorizationCredentials, security, service_person_required, employee_create_permission
+from dependencies import get_current_user,admin_required, admin_agent_required, HTTPAuthorizationCredentials, security, customer_required, employee_create_permission,agent_customer_required
 from fastapi.security import HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
@@ -616,6 +616,15 @@ def my_tickets(user=Depends(get_current_user), db=Depends(access_db)):
         (user["emp_id"],)
     )
     return cursor.fetchall()
+@app.get("/customer_my_tickets")
+def customer_my_tickets(user=Depends(customer_required), db=Depends(access_db)):
+    cursor = db.cursor()
+    cursor.execute(
+        "select * from ticket where customer_id=%s",
+        (user["emp_id"],)
+    )
+    return cursor.fetchall()
+
 
 @app.get("/profile")
 def profile(user=Depends(get_current_user), db=Depends(access_db)):
@@ -654,4 +663,140 @@ def logout(
     redis_client.delete(credentials.credentials)
     return {"message": "Logged out successfully"}
 
+@app.get("/customer_ticket_messages/{ticket_id}")
+def get_ticket_messages(
+    ticket_id: int,
+    user=Depends(agent_customer_required),
+    db=Depends(access_db)
+):
+    cursor = db.cursor()
 
+    if user["role"] == "Customer":
+        # customer can see only their ticket
+        cursor.execute(
+            "SELECT 1 FROM ticket WHERE ticket_id=%s AND customer_id=%s",
+            (ticket_id, user["emp_id"])
+        )
+        if not cursor.fetchone():
+            raise HTTPException(403, "Access denied")
+
+    elif user["role"] == "Agent":
+        # agent can see ticket (optionally check assignment)
+        cursor.execute(
+            "SELECT 1 FROM ticket WHERE ticket_id=%s",
+            (ticket_id,)
+        )
+        if not cursor.fetchone():
+            raise HTTPException(404, "Ticket not found")
+
+    cursor.execute("""
+        SELECT sender_role, message, created_at
+        FROM ticket_message
+        WHERE ticket_id=%s
+        ORDER BY created_at
+    """, (ticket_id,))
+
+    return cursor.fetchall()
+
+
+@app.post("/customer_ticket_message/{ticket_id}")
+def send_ticket_message(
+    ticket_id: int,
+    data: dict,
+    user=Depends(customer_required),
+    db=Depends(access_db)
+):
+    cursor = db.cursor()
+
+    cursor.execute("""
+        INSERT INTO ticket_message
+        (ticket_id, sender_role, sender_id, message)
+        VALUES (%s, 'Customer', %s, %s)
+    """, (ticket_id, user["emp_id"], data["message"]))
+
+    db.commit()
+    return {"status": "sent"}
+
+# @app.get("/agent_tickets")
+# def agent_tickets(
+#     user=Depends(admin_agent_required),   # Admin / Agent
+#     db=Depends(access_db)
+# ):
+#     cursor = db.cursor()
+
+#     cursor.execute("""
+#         SELECT 
+#             t.ticket_id,
+#             t.issue_title,
+#             t.ticket_status,
+#             t.priority,
+#             t.customer_id,
+
+#             (
+#                 SELECT sender_role
+#                 FROM ticket_message m
+#                 WHERE m.ticket_id = t.ticket_id
+#                 ORDER BY m.created_at DESC
+#                 LIMIT 1
+#             ) AS last_sender
+
+#         FROM ticket t
+#         ORDER BY t.generate_datetime DESC
+#     """)
+
+#     tickets = cursor.fetchall()
+
+#     # derive "needs_reply"
+#     for t in tickets:
+#         t["needs_reply"] = (t["last_sender"] == "Customer")
+
+#     return tickets
+@app.post("/agent_ticket_message/{ticket_id}")
+def agent_send_message(
+    ticket_id: int,
+    data: dict,
+    user=Depends(admin_agent_required),   # Admin / Agent
+    db=Depends(access_db)
+):
+    cursor = db.cursor()
+
+    cursor.execute("""
+        INSERT INTO ticket_message
+        (ticket_id, sender_role, sender_id, message)
+        VALUES (%s, 'Agent', %s, %s)
+    """, (ticket_id, user["emp_id"], data["message"]))
+
+    db.commit()
+    return {"status": "sent"}
+@app.get("/agent_tickets")
+def agent_tickets(
+    user=Depends(admin_agent_required),
+    db=Depends(access_db)
+):
+    cursor = db.cursor()
+
+    cursor.execute("""
+        SELECT 
+            t.ticket_id,
+            t.issue_title,
+            t.ticket_status,
+            t.priority,
+
+            (
+                SELECT sender_role
+                FROM ticket_message m
+                WHERE m.ticket_id = t.ticket_id
+                ORDER BY m.created_at DESC
+                LIMIT 1
+            ) AS last_sender
+
+        FROM ticket t
+        ORDER BY t.generate_datetime DESC
+    """)
+
+    tickets = cursor.fetchall()
+
+    for t in tickets:
+        t["needs_reply"] = (t["last_sender"] == "Customer")
+
+    return tickets

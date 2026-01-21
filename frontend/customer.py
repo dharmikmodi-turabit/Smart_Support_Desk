@@ -83,7 +83,6 @@ def customer_update():
     st.subheader("👤 Update Customer")
 
     customers = api_call("GET", "/all_customers", st.session_state["token"]) or []
-    print(customers)
 
     email_map = {
         c["customer_email"]: c for c in customers

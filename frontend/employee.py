@@ -89,58 +89,7 @@ def employee_add(role):
                 }
             )
             st.success("Employee registered successfully 🎉")
-# def employee_add(role):
-#     st.header("Register Employee")
 
-#     employees = api_call("GET", "/all_employees", st.session_state["token"]) or []
-#     existing_emails = {e["employee_email"] for e in employees}
-#     existing_mobiles = {e["employee_mobile_number"] for e in employees}
-
-#     with st.form("employee_registration_form"):
-#         col1, col2 = st.columns(2)
-#         with col1:
-#             name = st.text_input("Name")
-#         with col2:
-#             employee_type = st.selectbox(
-#                 "Employee Type",
-#                 ["Admin", "Agent", "Service Person"]
-#             )
-
-#         col1, col2, col3 = st.columns(3)
-#         with col1:
-#             email = st.text_input("Email")
-#         with col2:
-#             mobile = st.text_input("Mobile")
-#         with col3:
-#             password = st.text_input("Password", type="password")
-
-#         submitted = st.form_submit_button("Register")
-
-#     # 🔥 VALIDATION ONLY AFTER SUBMIT
-#     if submitted:
-#         if not email or not mobile:
-#             st.warning("Email and Mobile are required")
-
-#         elif email in existing_emails:
-#             st.error("❌ Email already exists")
-
-#         elif mobile in existing_mobiles:
-#             st.error("❌ Mobile number already exists")
-
-#         else:
-#             api_call(
-#                 "POST",
-#                 "/employee_registration",
-#                 st.session_state["token"],
-#                 {
-#                     "name": name,
-#                     "email": email,
-#                     "mobile_number": mobile,
-#                     "password": password,
-#                     "type": employee_type
-#                 }
-#             )
-#             st.success("Employee registered successfully 🎉")
 
 
 def employee_update():
@@ -256,3 +205,74 @@ def service_person_tickets():
 
 
 
+import streamlit as st
+import pandas as pd
+from api import api_call
+
+
+def employee_chat_dashboard():
+
+    st.header("🎧 Agent Ticket Inbox")
+
+    tickets = api_call(
+        "GET",
+        "/agent_tickets",
+        st.session_state["token"]
+    ) or []
+
+    if not tickets:
+        st.info("No tickets")
+        return
+
+    df = pd.DataFrame(tickets)
+
+    df["🔔"] = df["needs_reply"].apply(
+        lambda x: "🔴 New" if x else ""
+    )
+
+    st.data_editor(
+        df[["🔔", "ticket_id", "issue_title", "priority", "ticket_status"]],
+        hide_index=True,
+        disabled=True,
+        use_container_width=True
+    )
+
+    ticket_id = st.selectbox(
+        "Open Ticket",
+        df["ticket_id"].tolist()
+    )
+
+    agent_ticket_chat(ticket_id)
+
+import streamlit as st
+from api import api_call
+
+
+def agent_ticket_chat(ticket_id):
+
+    st.subheader("💬 Conversation")
+
+    messages = api_call(
+        "GET",
+        f"/customer_ticket_messages/{ticket_id}",
+        st.session_state["token"]
+    ) or []
+
+    for msg in messages:
+        if msg["sender_role"] == "Customer":
+            with st.chat_message("user"):
+                st.write(msg["message"])
+        else:
+            with st.chat_message("assistant"):
+                st.write(msg["message"])
+
+    reply = st.chat_input("Reply to customer...")
+
+    if reply:
+        api_call(
+            "POST",
+            f"/agent_ticket_message/{ticket_id}",
+            st.session_state["token"],
+            json={"message": reply}
+        )
+        st.rerun()

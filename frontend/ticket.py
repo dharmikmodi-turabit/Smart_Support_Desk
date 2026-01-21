@@ -6,6 +6,8 @@ from ui import apply_global_style
 @st.cache_data(ttl=30)
 def get_all_tickets(token):
     return api_call("GET", "/all_tickets", token)
+def get_customer_tickets(token):
+    return api_call("GET", "/customer_my_tickets", token)
 def ticket_view():
     apply_global_style()
     st.header("Ticket Management")
@@ -41,6 +43,42 @@ def ticket_view():
             },
             disabled=True
         )
+def customer_ticket_view():
+    apply_global_style()
+    st.header("Ticket Management")
+
+    data = get_customer_tickets(st.session_state["token"])
+    if data:
+        df = pd.DataFrame(data)[
+            ["ticket_id", "customer_id", "service_person_emp_id", "issue_title","issue_type", "priority", "ticket_status"]
+        ]
+
+        df = df.rename(columns={
+            "ticket_id": "Ticket ID",
+            "issue_title": "Title",
+            "priority": "Priority",
+            "ticket_status": "Status",
+            "service_person_emp_id" : "Service person ID",
+            "customer_id" : "Customer ID",
+            "issue_type":"Issue Type"
+        })
+
+        st.data_editor(
+            df,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Ticket ID": st.column_config.NumberColumn(width="small"),
+                "Title": st.column_config.TextColumn(width="large"),
+                "Issue Type": st.column_config.TextColumn(width="medium"),
+                "Priority": st.column_config.TextColumn(width="small"),
+                "Status": st.column_config.TextColumn(width="small"),
+                "Service person ID": st.column_config.NumberColumn(width="small"),
+                "Customer ID": st.column_config.NumberColumn(width="small"),
+            },
+            disabled=True
+        )
+
 
 
 
@@ -141,3 +179,40 @@ def ticket_update():
             }
         )
         st.success("Ticket updated successfully 🎉")
+
+def agent_ticket_list():
+    st.subheader("🎫 Assigned Tickets")
+
+    tickets = api_call(
+        "GET",
+        "/agent_tickets",
+        st.session_state["token"]
+    ) or []
+
+    if not tickets:
+        st.info("No tickets")
+        return
+
+    df = pd.DataFrame(tickets)
+
+    # visual indicator
+    df["🔔 New Msg"] = df["needs_reply"].apply(
+        lambda x: "🔴 New" if x else ""
+    )
+
+    st.data_editor(
+        df[
+            [
+                "🔔 New Msg",
+                "ticket_id",
+                "issue_title",
+                "priority",
+                "ticket_status",
+            ]
+        ],
+        hide_index=True,
+        disabled=True,
+        use_container_width=True
+    )
+
+    return df
