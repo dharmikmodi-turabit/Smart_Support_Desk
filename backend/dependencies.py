@@ -44,13 +44,13 @@ def customer_required(credentials=Depends(security)):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token"
         )
-def agent_customer_required(credentials=Depends(security)):
+def admin_agent_customer_required(credentials=Depends(security)):
     token = credentials.credentials
 
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
 
-        if payload.get("role") not in ["Customer", "Agent"]:
+        if payload.get("role") not in ["Customer", "Agent","Admin"]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Customer access only"

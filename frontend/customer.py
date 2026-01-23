@@ -26,30 +26,11 @@ def customer_add():
     col1, col2 = st.columns(2)
     with col1:
         name = st.text_input("Name")
-        mobile = st.selectbox(
-            "Mobile",
-            ["Select Mobile"] + existing_mobiles,
-            index=0
-        )
+        mobile = st.text_input("Mobile")
 
     with col2:
         company_name = st.text_input("Company")
-        email = st.selectbox(
-            "Email",
-            ["Select Email"] + existing_emails,
-            index=0
-        )
-    # with st.form("customer_add_form"):
-    #     name = st.text_input("Name")
-    #     email = st.text_input("Email")
-    #     mobile = st.text_input("Mobile")
-    #     submit = st.form_submit_button("Register")
-
-    # if submit:
-    #     if email in existing_emails:
-    #         st.error("Email already exists")
-    #     elif mobile in existing_mobiles:
-    #         st.error("Mobile already exists")
+        email = st.text_input("Email")
 
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -61,22 +42,34 @@ def customer_add():
 
     address = st.text_area("Address")
 
-    # ---- VALIDATION ----
-    if email != "Select Email":
-        st.error("❌ Email already exists")
+    # # ---- VALIDATION ----
+    # if email != "Select Email":
+    #     st.error("❌ Email already exists")
 
-    if mobile != "Select Mobile":
-        st.error("❌ Mobile already exists")
+    # if mobile != "Select Mobile":
+    #     st.error("❌ Mobile already exists")
 
     # ---- FORM SUBMIT ----
     with st.form("customer_registration_form"):
         submitted = st.form_submit_button("Register")
 
     if submitted:
-        if email != "Select Email" or mobile != "Select Mobile":
-            st.error("Duplicate Email or Mobile not allowed")
-        else:
-            st.warning("Please enter new Email and Mobile")
+        api_call(
+            "POST",
+            "/customer_registration",
+            st.session_state["token"],
+            {
+                "name": name,
+                "email": email,
+                "mobile_number": mobile,
+                "company_name": company_name,
+                "city": city,
+                "state": state,
+                "country": country,
+                "address": address
+            }
+        )
+        st.success("Customer created successfully ✅")
 
 def customer_update():
     apply_global_style()
@@ -101,11 +94,7 @@ def customer_update():
 
             with col1:
                 name = st.text_input("Name", customer["customer_name"])
-                mobile = st.selectbox(
-                    "Mobile",
-                    [customer["customer_mobile_number"]],
-                    disabled=True
-                )
+                mobile = st.text_input("Name", customer["customer_mobile_number"], disabled=True)
 
             with col2:
                 company_name = st.text_input("Company", customer["customer_company_name"])

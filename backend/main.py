@@ -7,12 +7,27 @@ from enum import Enum
 from datetime import datetime
 from auth import create_access_token
 from redis_client import redis_client
-from dependencies import get_current_user,admin_required, admin_agent_required, HTTPAuthorizationCredentials, security, customer_required, employee_create_permission,agent_customer_required
+from dependencies import get_current_user,admin_required, admin_agent_required, HTTPAuthorizationCredentials, security, customer_required, employee_create_permission,admin_agent_customer_required
 from fastapi.security import HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
+from admin import router
+import os
+from customer_sync import sync_single_customer
+from hubspot_contacts import sync_contact
 
-app = FastAPI()
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(BASE_DIR, ".env"), override=True)
+
+env_path = os.path.join(BASE_DIR, ".env")
+# print("ENV PATH:", env_path)
+# print("ENV EXISTS:", os.path.exists(env_path))
+# print("RAW HUBSPOT_TOKEN =", repr(os.getenv("HUBSPOT_TOKEN")))
+
+app = FastAPI(title="Smart Support Desk")
+
+
+app.include_router(router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -22,7 +37,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-load_dotenv()
 
     
 class Login(BaseModel):
@@ -305,8 +319,13 @@ def customer_registration(data:CustomerRegister,user=Depends(admin_agent_require
                           data.address)
                 cursor.execute(query,values)
                 db.commit()
+                customer_id = cursor.lastrowid
+                sync_single_customer(customer_id)
+
                 return {"status_code":status.HTTP_201_CREATED, "message":"Customer registered"}
     except Exception as e:
+        print(e)
+        print(str(e))
         raise HTTPException(
         status_code=500,
         detail=str(e)
@@ -381,10 +400,25 @@ def update_customer(data : CustomerRegister,user=Depends(admin_agent_required),d
                               data.email)
                     cursor.execute(query,values)
                     db.commit()
-                    return HTTPException(
-                        status_code=status.HTTP_202_ACCEPTED,
-                        detail={"Message":"Customer Updated!"}
-                        )
+                    # 🔥 Fetch updated row
+                    cursor.execute(
+                        "SELECT * FROM customer WHERE customer_id = %s",
+                        (d['customer_id'],)
+                    )
+                    customer = cursor.fetchone()
+
+                    # 🔥 Sync HubSpot (safe)
+                    try:
+                        sync_contact(customer)
+                    except Exception as e:
+                        print("HubSpot update failed:", e)
+
+                    return {"message": "Customer updated & synced"}
+
+                    # return HTTPException(
+                    #     status_code=status.HTTP_202_ACCEPTED,
+                    #     detail={"Message":"Customer Updated!"}
+                    #     )
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail={
@@ -666,7 +700,7 @@ def logout(
 @app.get("/customer_ticket_messages/{ticket_id}")
 def get_ticket_messages(
     ticket_id: int,
-    user=Depends(agent_customer_required),
+    user=Depends(admin_agent_customer_required),
     db=Depends(access_db)
 ):
     cursor = db.cursor()
@@ -717,40 +751,7 @@ def send_ticket_message(
     db.commit()
     return {"status": "sent"}
 
-# @app.get("/agent_tickets")
-# def agent_tickets(
-#     user=Depends(admin_agent_required),   # Admin / Agent
-#     db=Depends(access_db)
-# ):
-#     cursor = db.cursor()
 
-#     cursor.execute("""
-#         SELECT 
-#             t.ticket_id,
-#             t.issue_title,
-#             t.ticket_status,
-#             t.priority,
-#             t.customer_id,
-
-#             (
-#                 SELECT sender_role
-#                 FROM ticket_message m
-#                 WHERE m.ticket_id = t.ticket_id
-#                 ORDER BY m.created_at DESC
-#                 LIMIT 1
-#             ) AS last_sender
-
-#         FROM ticket t
-#         ORDER BY t.generate_datetime DESC
-#     """)
-
-#     tickets = cursor.fetchall()
-
-#     # derive "needs_reply"
-#     for t in tickets:
-#         t["needs_reply"] = (t["last_sender"] == "Customer")
-
-#     return tickets
 @app.post("/agent_ticket_message/{ticket_id}")
 def agent_send_message(
     ticket_id: int,

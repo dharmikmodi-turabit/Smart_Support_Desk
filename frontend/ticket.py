@@ -109,16 +109,18 @@ def ticket_create():
 
 
 
-def ticket_update():
+def ticket_update(role):
     apply_global_style()
     st.header("🛠 Update Assigned Ticket")
-
-    # 1️⃣ Fetch assigned tickets
-    tickets = api_call(
-        "GET",
-        "/my_tickets",
-        st.session_state["token"]
-    ) or []
+    if role in ['Admin','Agent']:
+        tickets = get_all_tickets(st.session_state["token"])
+    else:
+        # 1️⃣ Fetch assigned tickets
+        tickets = api_call(
+            "GET",
+            "/my_tickets",
+            st.session_state["token"]
+        ) or []
 
     if not tickets:
         st.warning("No tickets assigned")

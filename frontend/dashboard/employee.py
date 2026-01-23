@@ -1,82 +1,3 @@
-# import streamlit as st
-# from api import api_call
-# import pandas as pd
-# import plotly.express as px
-
-
-# def employee_dashboard(user):   
-#     st.title("👨‍💼 Employee Dashboard")
-#     emp_id = user["emp_id"]
-#     role = user["role"]
-#     st.info(f"Logged in as: **{emp_id}**")
-
-
-#     st.subheader("📊 Ticket Status Distribution")
-#     col1, col2 = st.columns([1, 3])
-
-#     all_tickets = []
-#     my_tickets = []
-
-#     if role in ["Admin", "Agent"]:
-#         all_tickets = api_call(
-#             "GET",
-#             "/all_tickets",
-#             st.session_state["token"]
-#         ) or []
-
-#         with col1:
-#             st.metric("", "")
-#             st.metric("Total Tickets", len(all_tickets))
-
-#     else:
-#         my_tickets = api_call(
-#             "GET",
-#             "/my_tickets",
-#             st.session_state["token"]
-#         ) or []
-
-#         with col1:
-#             st.metric("", "")
-#             st.metric("Assigned Tickets", len(my_tickets))
-
-#     # if role == "Service Person":
-#     #     st.subheader("My Assigned Tickets")
-#     #     st.dataframe(my_tickets)
-#     closed = [
-#         t for t in (all_tickets or my_tickets)
-#         if t["ticket_status"] == "Close"
-#     ]
-    
-#     In_progress = [
-#         t for t in (all_tickets or my_tickets)
-#         if t["ticket_status"] == "In_Progress"
-#     ]
-
-#     with col1:
-#         st.metric("In Progress Tickets", len(In_progress))
-#         st.metric("Closed Tickets", len(closed))
-
-#     st.divider()
-
-
-
-#     with col2:
-#         tickets = all_tickets if role in ["Admin", "Agent"] else my_tickets
-
-#         if tickets:
-#             df = pd.DataFrame(tickets)
-
-#             # status_count = df["ticket_status"].value_counts()
-
-#             fig = px.pie(
-#                 df,
-#                 names="ticket_status",
-#                 hole=0.5,
-#                 title="Ticket Status Breakdown"
-#             )
-
-#             st.plotly_chart(fig, use_container_width=True,height=450 )
-
 import streamlit as st
 from api import api_call
 import pandas as pd
@@ -89,7 +10,7 @@ def employee_dashboard(user):
     emp_id = user["emp_id"]
     role = user["role"]
 
-    st.info(f"Logged in as: **{emp_id}**")
+    # st.info(f"Logged in as: **{emp_id}**")
 
     # =========================
     # Fetch tickets
@@ -145,7 +66,12 @@ def employee_dashboard(user):
         x="ticket_status",
         color="priority",
         barmode="stack",
-        title="🔥 Ticket Status by Priority"
+        title="🔥 Ticket Status by Priority",
+        labels={
+            "ticket_status": "Ticket Status",
+            "priority": "Priority",
+            "count": "Count"
+        }
     )
 
     col1.plotly_chart(fig_status, use_container_width=True, config={"displayModeBar": False})
@@ -153,26 +79,26 @@ def employee_dashboard(user):
 
     st.divider()
 
-    # =========================
-    # TICKETS OVER TIME
-    # =========================
-    daily = (
-        df.groupby(df["generate_datetime"].dt.date)
-        .size()
-        .reset_index(name="Tickets")
-    )
+    # # =========================
+    # # TICKETS OVER TIME
+    # # =========================
+    # daily = (
+    #     df.groupby(df["generate_datetime"].dt.date)
+    #     .size()
+    #     .reset_index(name="Tickets")
+    # )
 
-    fig_time = px.line(
-        daily,
-        x="generate_datetime",
-        y="Tickets",
-        markers=True,
-        title="📈 Tickets Created Over Time"
-    )
+    # fig_time = px.line(
+    #     daily,
+    #     x="generate_datetime",
+    #     y="Tickets",
+    #     markers=True,
+    #     title="📈 Tickets Created Over Time"
+    # )
 
-    st.plotly_chart(fig_time, use_container_width=True, config={"displayModeBar": False})
+    # st.plotly_chart(fig_time, use_container_width=True, config={"displayModeBar": False})
 
-    st.divider()
+    # st.divider()
 
     # =========================
     # SERVICE PERSON WORKLOAD

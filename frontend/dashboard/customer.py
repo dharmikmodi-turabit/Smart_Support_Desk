@@ -1,39 +1,3 @@
-# import streamlit as st
-# from api import api_call
-# import pandas as pd
-# from ui import apply_global_style
-
-# def customer_dashboard(user):
-#     apply_global_style()
-
-#     st.header("👤 Customer Dashboard")
-#     st.caption(f"Welcome back, **{user.get('emp_id','Customer')}**")
-
-#     tickets = api_call("GET", "/customer_my_tickets", st.session_state["token"]) or []
-
-#     open_tickets = [t for t in tickets if t["ticket_status"] == "Open"]
-#     closed_tickets = [t for t in tickets if t["ticket_status"] == "Close"]
-
-#     col1, col2, col3 = st.columns(3)
-#     col1.metric("🎫 Total Tickets", len(tickets))
-#     col2.metric("🟢 Open", len(open_tickets))
-#     col3.metric("✅ Closed", len(closed_tickets))
-
-#     st.divider()
-
-#     st.subheader("📋 My Tickets")
-
-#     if tickets:
-#         df = pd.DataFrame(tickets)
-#         st.data_editor(
-#             df,
-#             use_container_width=True,
-#             hide_index=True,
-#             disabled=True
-#         )
-#     else:
-#         st.info("No tickets created yet")
-
 import streamlit as st
 import pandas as pd
 from api import api_call
@@ -44,7 +8,7 @@ def customer_dashboard(user):
     apply_global_style()
 
     st.title("👤 Customer Dashboard")
-    st.caption(f"Welcome back, **Customer #{user.get('emp_id')}**")
+    # st.caption(f"Welcome back, **Customer #{user.get('emp_id')}**")
 
     # ---------------- FETCH DATA ----------------
     tickets = api_call(
@@ -61,12 +25,14 @@ def customer_dashboard(user):
 
     # ---------------- KPIs ----------------
     open_count = len(df[df["ticket_status"] == "Open"])
+    in_progress_count = len(df[df["ticket_status"] == "In_Progress"])
     closed_count = len(df[df["ticket_status"] == "Close"])
 
-    c1, c2, c3 = st.columns(3)
+    c1, c2, c3, c4 = st.columns(4)
     c1.metric("🎫 Total Tickets", len(df))
     c2.metric("🟢 Open Tickets", open_count)
-    c3.metric("✅ Closed Tickets", closed_count)
+    c3.metric("🟢 In Progress Tickets", in_progress_count)
+    c4.metric("✅ Closed Tickets", closed_count)
 
     st.divider()
 

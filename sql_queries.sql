@@ -37,18 +37,33 @@ use smart_support_desk;
 
 
 
-create Table customer(
-	customer_id int auto_increment primary key,
-    customer_name varchar(30),
-    customer_email varchar(40) unique key,
-    customer_mobile_number varchar(10) unique key,
-    customer_company_name varchar(30),
-    customer_city varchar(30),
-    customer_state varchar(30),
-    customer_country varchar(30),
-    customer_address varchar(100)
+CREATE TABLE customer (
+    customer_id INT AUTO_INCREMENT PRIMARY KEY,
+    customer_name VARCHAR(30) NOT NULL,
+    customer_email VARCHAR(40) UNIQUE NOT NULL,
+    customer_mobile_number VARCHAR(10) UNIQUE NOT NULL,
+    customer_company_name VARCHAR(30),
+    customer_city VARCHAR(30),
+    customer_state VARCHAR(30),
+    customer_country VARCHAR(30),
+    customer_address VARCHAR(100)
 );
+INSERT INTO customer (
+    customer_name,
+    customer_email,
+    customer_mobile_number,
+    customer_company_name,
+    customer_city,
+    customer_state,
+    customer_country,
+    customer_address
+)
+VALUES
+('Rahul Sharma', 'rahul@gmail.com', '8888888881', 'TechSoft', 'Ahmedabad', 'Gujarat', 'India', 'CG Road'),
+('Neha Patel', 'neha@gmail.com', '8888888882', 'FinCorp', 'Surat', 'Gujarat', 'India', 'Ring Road'),
+('Amit Verma', 'amit@gmail.com', '8888888883', 'CloudNet', 'Mumbai', 'Maharashtra', 'India', 'Andheri East');
 
+drop table customer;
 -- create table ticket(
 -- 	ticket_id int auto_increment primary key,
 --     issue_title varchar(30),
@@ -76,35 +91,218 @@ create table employee_type(
     type_name varchar(20)
     );
 
-create table employee(
-	employee_id int auto_increment primary key,
-    employee_name varchar(30),
-    employee_email varchar(40) unique key,
-    employee_mobile_number varchar(10) unique key,
-    employee_password varchar(20),
-    employee_type int,
-    foreign key (employee_type) references employee_type(employee_type_id)
-	);
+CREATE TABLE employee (
+    employee_id INT AUTO_INCREMENT PRIMARY KEY,
+    employee_name VARCHAR(30) NOT NULL,
+    employee_email VARCHAR(40) UNIQUE NOT NULL,
+    employee_mobile_number VARCHAR(10) UNIQUE NOT NULL,
+    employee_password VARCHAR(255) NOT NULL,
+    employee_type INT NOT NULL,
+    FOREIGN KEY (employee_type) REFERENCES employee_type(employee_type_id)
+);
+INSERT INTO employee (
+    employee_name,
+    employee_email,
+    employee_mobile_number,
+    employee_password,
+    employee_type
+)
+VALUES
+('Admin User', 'admin@gmail.com', '9999999991', 'admin123', 1),
+('Agent One', 'agent1@gmail.com', '9999999992', 'agent123', 2),
+('Agent Two', 'agent2@gmail.com', '9999999993', 'agent123', 2),
+('Service Person A', 'service1@gmail.com', '9999999994', 'service123', 3),
+('Service Person B', 'service2@gmail.com', '9999999995', 'service123', 3);
 drop table employee;
 
 
-create table ticket(
-	ticket_id int auto_increment primary key,
-    issue_title varchar(30),
-    issue_type varchar(20),
-    issue_description varchar(100),
-    priority enum("High","Medium","Low"),
-    reason varchar(50),
-    generate_datetime datetime,
-    solve_datetime datetime,
-    ticket_status enum("Open","In_Progress","Close"),
-    service_person_emp_id int,
-    creater_emp_id int,
-    customer_id int,
-    foreign key (customer_id) references customer(customer_id),
-    foreign key (service_person_emp_id) references employee(employee_id),
-    foreign key (creater_emp_id) references employee(employee_id)
+CREATE TABLE ticket (
+    ticket_id INT AUTO_INCREMENT PRIMARY KEY,
+    issue_title VARCHAR(50) NOT NULL,
+    issue_type VARCHAR(20) NOT NULL,
+    issue_description VARCHAR(255),
+    priority ENUM('High','Medium','Low') DEFAULT 'Medium',
+    reason VARCHAR(50),
+    generate_datetime DATETIME DEFAULT CURRENT_TIMESTAMP,
+    solve_datetime DATETIME,
+    ticket_status ENUM('Open','In_Progress','Close') DEFAULT 'Open',
+
+    service_person_emp_id INT,
+    creater_emp_id INT NOT NULL,
+    customer_id INT NOT NULL,
+
+    FOREIGN KEY (customer_id) REFERENCES customer(customer_id),
+    FOREIGN KEY (service_person_emp_id) REFERENCES employee(employee_id),
+    FOREIGN KEY (creater_emp_id) REFERENCES employee(employee_id)
 );
+INSERT INTO ticket (
+    issue_title,
+    issue_type,
+    issue_description,
+    priority,
+    reason,
+    ticket_status,
+    service_person_emp_id,
+    creater_emp_id,
+    customer_id
+)
+VALUES
+(
+    'Login not working',
+    'Authentication',
+    'User unable to login into system',
+    'High',
+    'Credentials error',
+    'Open',
+    4,   -- Service Person A
+    2,   -- Agent One
+    1
+),
+(
+    'UI issue on dashboard',
+    'Frontend',
+    'Dashboard UI not loading properly',
+    'Medium',
+    'CSS issue',
+    'In_Progress',
+    5,   -- Service Person B
+    3,   -- Agent Two
+    2
+),
+(
+    'Report download failed',
+    'Backend',
+    'PDF report download throwing error',
+    'Low',
+    'API timeout',
+    'Close',
+    4,
+    2,
+    3
+);
+INSERT INTO ticket (
+    issue_title,
+    issue_type,
+    issue_description,
+    priority,
+    reason,
+    ticket_status,
+    service_person_emp_id,
+    creater_emp_id,
+    customer_id
+)
+VALUES
+(
+    'Email notifications not received',
+    'Backend',
+    'Customer not receiving ticket update emails',
+    'Medium',
+    'SMTP issue',
+    'Open',
+    4,
+    2,
+    1
+),
+(
+    'Application crash on submit',
+    'Backend',
+    'App crashes when submitting support form',
+    'High',
+    'Null pointer exception',
+    'In_Progress',
+    5,
+    3,
+    2
+),
+(
+    'Slow page loading',
+    'Performance',
+    'Dashboard takes too long to load',
+    'Medium',
+    'Heavy SQL query',
+    'Open',
+    4,
+    2,
+    3
+),
+(
+    'Wrong data in report',
+    'Data',
+    'Generated report contains incorrect values',
+    'High',
+    'Data mapping issue',
+    'In_Progress',
+    5,
+    3,
+    1
+),
+(
+    'Password reset email invalid',
+    'Authentication',
+    'Reset link expired immediately',
+    'Low',
+    'Token expiry issue',
+    'Open',
+    4,
+    2,
+    2
+),
+(
+    'UI alignment issue',
+    'Frontend',
+    'Buttons overlap on mobile view',
+    'Low',
+    'CSS responsive issue',
+    'Close',
+    5,
+    3,
+    3
+),
+(
+    'API returns 500 error',
+    'Backend',
+    'Internal server error on ticket creation',
+    'High',
+    'Unhandled exception',
+    'In_Progress',
+    4,
+    2,
+    1
+),
+(
+    'Search not working',
+    'Frontend',
+    'Search bar returns no results',
+    'Medium',
+    'Index missing',
+    'Open',
+    5,
+    3,
+    2
+),
+(
+    'File upload failed',
+    'Backend',
+    'Attachments not uploading',
+    'High',
+    'File size limit exceeded',
+    'Open',
+    4,
+    2,
+    3
+),
+(
+    'Logout not clearing session',
+    'Authentication',
+    'User remains logged in after logout',
+    'Medium',
+    'Token not invalidated',
+    'Close',
+    5,
+    3,
+    1
+);
+
 drop table ticket;
 
 CREATE TABLE ticket_log (
@@ -163,9 +361,13 @@ DELIMITER ;
 
 drop trigger ticket_before_update;
 
--- create procedure
--- create trigger ticket_create_trigger
--- after insert on ticket
--- for each row 
--- begin
--- end;
+CREATE TABLE ticket_message (
+    message_id INT AUTO_INCREMENT PRIMARY KEY,
+    ticket_id INT NOT NULL,
+    sender_role ENUM('Customer','Agent','System') NOT NULL,
+    sender_id INT NOT NULL,
+    message TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (ticket_id) REFERENCES ticket(ticket_id)
+);
+
