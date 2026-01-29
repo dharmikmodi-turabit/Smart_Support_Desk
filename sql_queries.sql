@@ -331,7 +331,6 @@ BEFORE UPDATE ON ticket
 FOR EACH ROW
 BEGIN
     -- Only log if something important changed
-
         INSERT INTO ticket_log (
             ticket_id,
             new_ticket_status,
@@ -346,21 +345,24 @@ BEGIN
             OLD.ticket_status,
             NEW.priority,
             OLD.priority,
-            NEW.service_person_emp_id
+        COALESCE(NEW.service_person_emp_id, OLD.service_person_emp_id)
         );
-
-
     -- Auto set solve_datetime when ticket is closed
     IF NEW.ticket_status = 'Close' AND OLD.ticket_status <> 'Close' THEN
         SET NEW.solve_datetime = NOW();
     END IF;
+    
 
-END$$
+END $$
 
 DELIMITER ;
+ALTER TABLE customer
+ADD COLUMN hubspot_contact_id VARCHAR(50);
+ALTER TABLE ticket
+ADD COLUMN hubspot_ticket_id VARCHAR(30);
 
 drop trigger ticket_before_update;
-
+show triggers;
 CREATE TABLE ticket_message (
     message_id INT AUTO_INCREMENT PRIMARY KEY,
     ticket_id INT NOT NULL,

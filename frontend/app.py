@@ -93,7 +93,6 @@ else:
     # ---------------- ROUTING ----------------
     if menu == "dashboard":
         if role == "Customer":
-            print(1)
             customer_dashboard(user)
         else:
             employee_dashboard(user)

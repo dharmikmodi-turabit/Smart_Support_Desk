@@ -1,58 +1,17 @@
-# import os
-# import requests
-# HUBSPOT_CONTACT_URL = "https://api.hubapi.com/crm/v3/objects/contacts"
-
-# HUBSPOT_TOKEN = os.getenv("HUBSPOT_TOKEN")
-# HEADERS = {
-#     "Authorization": f"Bearer {HUBSPOT_TOKEN}",
-#     "Content-Type": "application/json"
-# }
-
-
-
-# def create_contact_from_db(customer):
-#     HUBSPOT_TOKEN = os.getenv("HUBSPOT_TOKEN")
-#     HEADERS = {
-#         "Authorization": f"Bearer {HUBSPOT_TOKEN}",
-#         "Content-Type": "application/json"
-#     }
-#     payload = {
-#         "properties": {
-#             "email": customer["customer_email"],
-
-#             "customer_id": customer["customer_id"],
-#             "customer_name": customer["customer_name"],
-#             "customer_email": customer["customer_email"],
-#             "customer_mobile_number": customer["customer_mobile_number"],
-#             "customer_company_name": customer["customer_company_name"],
-#             "customer_city": customer["customer_city"],
-#             "customer_state": customer["customer_state"],
-#             "customer_country": customer["customer_country"],
-#             "customer_address": customer["customer_address"],
-#         }
-#     }
-
-#     response = requests.post(
-#         HUBSPOT_CONTACT_URL,
-#         headers=HEADERS,
-#         json=payload
-#     )
-
-#     response.raise_for_status()
-#     return response.json()
 
 import requests, os
+# from main import HUBSPOT_TOKEN
 
-url = "https://api.hubapi.com/crm/v3/objects/contacts"
+url = "https://api.hubapi.com"
 
 def create_contact_from_db(customer):
+
     HUBSPOT_TOKEN = os.getenv("HUBSPOT_TOKEN")
 
     headers = {
         "Authorization": f"Bearer {HUBSPOT_TOKEN}",
         "Content-Type": "application/json"
     }
-
     payload = {
         "properties": {
             "email": customer["customer_email"],
@@ -69,12 +28,12 @@ def create_contact_from_db(customer):
         }
     }
 
-    response = requests.post(url, json=payload, headers=headers)
+    response = requests.post(f"{url}/crm/v3/objects/contacts", json=payload, headers=headers)
     response.raise_for_status()
-    return response.json()
+    data = response.json()
+    return data["id"]  # ✅ internal use only
 
 def get_contact_id_by_email(email):
-    url = "https://api.hubapi.com/crm/v3/objects/contacts/search"
 
     HUBSPOT_TOKEN = os.getenv("HUBSPOT_TOKEN")
     headers = {
@@ -94,21 +53,19 @@ def get_contact_id_by_email(email):
         "limit": 1
     }
 
-    response = requests.post(url, json=payload, headers=headers)
+    response = requests.post(f"{url}/crm/v3/objects/contacts/search", json=payload, headers=headers)
     response.raise_for_status()
 
     results = response.json().get("results", [])
     return results[0]["id"] if results else None
 
 def update_contact(contact_id, customer):
-    url = f"https://api.hubapi.com/crm/v3/objects/contacts/{contact_id}"
 
     HUBSPOT_TOKEN = os.getenv("HUBSPOT_TOKEN")
     headers = {
         "Authorization": f"Bearer {HUBSPOT_TOKEN}",
         "Content-Type": "application/json"
     }
-
     properties = {
             "email": customer["customer_email"],
 
@@ -126,54 +83,54 @@ def update_contact(contact_id, customer):
     properties = {k: v for k, v in properties.items() if v}
 
     payload = {"properties": properties}
-
-    response = requests.patch(url, json=payload, headers=headers)
+    print(payload)
+    response = requests.patch(f"{url}/crm/v3/objects/contacts/{contact_id}", json=payload, headers=headers)
     response.raise_for_status()
     return response.json()
-def sync_contact(customer):
+# def sync_contact(customer):
+#     email = customer["customer_email"]
+
+#     contact_id = get_contact_id_by_email(email)
+
+#     if contact_id:
+#         # ✅ UPDATE
+#         return update_contact(contact_id, customer)
+#     else:
+#         # ✅ CREATE
+#         return create_contact_from_db(customer)
+def sync_contact(customer, db):
     email = customer["customer_email"]
 
+    contact_id = customer.get("hubspot_contact_id")
+
+    # 1️⃣ If ID already stored → update directly
+    if contact_id:
+        update_contact(contact_id, customer)
+        return contact_id
+
+    # 2️⃣ Else try search
     contact_id = get_contact_id_by_email(email)
 
     if contact_id:
-        # ✅ UPDATE
-        return update_contact(contact_id, customer)
-    else:
-        # ✅ CREATE
-        return create_contact_from_db(customer)
+        # save ID
+        with db.cursor() as cursor:
+            cursor.execute(
+                "UPDATE customer SET hubspot_contact_id = %s WHERE customer_id = %s",
+                (contact_id, customer["customer_id"])
+            )
+            db.commit()
 
-# def upsert_contact_from_db(customer):
-#     url = "https://api.hubapi.com/crm/v3/objects/contacts/search"
+        update_contact(contact_id, customer)
+        return contact_id
 
-#     HUBSPOT_TOKEN = os.getenv("HUBSPOT_TOKEN")
-#     headers = {
-#         "Authorization": f"Bearer {HUBSPOT_TOKEN}",
-#         "Content-Type": "application/json"
-#     }
+    # 3️⃣ Else create
+    contact_id = create_contact_from_db(customer)
 
-#     properties = {
-#             "email": customer["customer_email"],
+    with db.cursor() as cursor:
+        cursor.execute(
+            "UPDATE customer SET hubspot_contact_id = %s WHERE customer_id = %s",
+            (contact_id, customer["customer_id"])
+        )
+        db.commit()
 
-#             "customer_id": customer["customer_id"],
-#             "customer_name": customer["customer_name"],
-#             "customer_email": customer["customer_email"],
-#             "customer_mobile_number": customer["customer_mobile_number"],
-#             "customer_company_name": customer["customer_company_name"],
-#             "customer_city": customer["customer_city"],
-#             "customer_state": customer["customer_state"],
-#             "customer_country": customer["customer_country"],
-#             "customer_address": customer["customer_address"],
-#         }
-
-#     # 🔥 Remove empty fields
-#     properties = {k: v for k, v in properties.items() if v}
-
-#     payload = {"properties": properties}
-
-#     response = requests.post(url, json=payload, headers=headers)
-
-#     if response.status_code >= 400:
-#         print("HubSpot error:", response.text)
-
-#     response.raise_for_status()
-#     return response.json()
+    return contact_id

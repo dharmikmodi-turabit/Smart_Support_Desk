@@ -1,5 +1,5 @@
 from database import access_db
-from hubspot_contacts import create_contact_from_db
+from hubspot_contacts import create_contact_from_db, sync_contact
 
 def sync_single_customer(customer_id: int):
     db = access_db()
@@ -14,5 +14,6 @@ def sync_single_customer(customer_id: int):
     if not customer:
         return {"error": "Customer not found"}
 
-    create_contact_from_db(customer)
+    sync_contact(customer, db)
+
     return {"success": True}
