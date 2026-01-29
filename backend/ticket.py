@@ -76,7 +76,8 @@ def ticket_registration(data:TicketRegister,user=Depends(admin_agent_required),d
                             "content": data.issue_description,
                             "hs_pipeline": "0",
                             "hs_pipeline_stage": "1",
-                            "hs_ticket_priority": data.priority.upper()
+                            "hs_ticket_priority": data.priority.upper(),
+                            "hubspot_owner_id": 87397359
                         },
                         "associations": [
                             {

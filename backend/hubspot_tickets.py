@@ -65,26 +65,29 @@ def hubspot_close_ticket(hubspot_ticket_id):
         json=payload
     )
 
-# import requests
-# from dotenv import load_dotenv
-# import os
 
-# BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# load_dotenv(os.path.join(BASE_DIR, ".env"))
+def fetch_ticket_by_id(ticket_id: str):
+    HUBSPOT_TOKEN = os.getenv("HUBSPOT_TOKEN")
 
-# HUBSPOT_TOKEN = os.getenv("HUBSPOT_TOKEN")
-# HUBSPOT_TICKET_URL = "https://api.hubapi.com/crm/v3/objects/tickets"
-
-# def hubspot_create_ticket_single(ticket_payload: dict):
-#     headers = {
-#         "Content-Type": "application/json",
-#         "Authorization": f"Bearer {HUBSPOT_TOKEN}"
-#     }
-
-#     response = requests.post(HUBSPOT_TICKET_URL, json=ticket_payload, headers=headers)
-#     return response
-import requests
-import os
+    HEADERS = {
+        "Authorization": f"Bearer {HUBSPOT_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    res = requests.get(
+        f"{BASE_URL}/crm/v3/objects/tickets/{ticket_id}",
+        headers=HEADERS,
+        params={
+            "properties": [
+                "subject",
+                "content",
+                "hs_pipeline_stage",
+                "hs_ticket_priority",
+                "createdate"
+            ]
+        }
+    )
+    res.raise_for_status()
+    return res.json()
 
 
 def hubspot_create_ticket_single(payload: dict):

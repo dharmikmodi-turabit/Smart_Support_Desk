@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from database import access_db
 from hubspot_tickets import hubspot_create_ticket_single
 from hubspot_contacts import get_contact_id_by_email
+from hubspot_fetch import fetch_ticket_by_id
 
 hubspot_ticket_router = APIRouter(prefix="/hubspot", tags=["HubSpot"])
 router  = hubspot_ticket_router
@@ -63,8 +64,6 @@ def create_ticket_in_hubspot(ticket_id: int):
     }
 
 
-
-
     res = hubspot_create_ticket_single(payload)
 
     if res.status_code != 201:
@@ -82,3 +81,23 @@ def create_ticket_in_hubspot(ticket_id: int):
         "status": "success",
         "hubspot_ticket_id": hubspot_ticket_id
     }
+
+# from hubspot_tickets import fetch_ticket_by_id
+
+
+@router.get("/ticket/{ticket_id}")
+def get_ticket_from_hubspot(ticket_id: int):
+
+    conn = access_db()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "SELECT hubspot_ticket_id FROM ticket WHERE ticket_id=%s",
+        (ticket_id,)
+    )
+    ticket = cursor.fetchone()
+
+    if not ticket or not ticket["hubspot_ticket_id"]:
+        raise HTTPException(404, "Ticket not synced to HubSpot")
+
+    return fetch_ticket_by_id(ticket["hubspot_ticket_id"])
