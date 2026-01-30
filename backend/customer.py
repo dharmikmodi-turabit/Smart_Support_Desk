@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from auth import create_access_token
 from customer_sync import sync_single_customer
 from hubspot_contacts import sync_contact
+from hubspot_contacts import fetch_contact_by_id
 
 
 customer_router = APIRouter()
@@ -98,28 +99,6 @@ def customer_registration(data:CustomerRegister,user=Depends(admin_agent_require
         detail=str(e)
     )
 
-# @customer_router.post("/customer_login", tags=["Customer"])
-# def customer_login(data : CustomerLogin,db = Depends(access_db)):
-#     try:
-#         c = db.cursor()
-#         c.execute("""
-#                 SELECT 
-#                     customer_id,
-#                     customer_email
-#                 FROM customer
-#                 WHERE customer_email = %s 
-#                   OR customer_mobile_number = %s
-#             """, (data.email_or_mobile,data.email_or_mobile))
-#         user = c.fetchone()
-#         if not user:
-#             raise HTTPException(status_code=401, detail="Customer not registered")
-#         return user
-
-#     except Exception as e:
-#         raise HTTPException(
-#         status_code=500,
-#         detail=str(e)
-#     )
 
 @customer_router.post("/customer_login", tags=["Customer"])
 def customer_login(data: CustomerLogin, db=Depends(access_db)):
@@ -182,10 +161,6 @@ def update_customer(data : CustomerRegister,user=Depends(admin_agent_required),d
 
                     return {"message": "Customer updated & synced"}
 
-                    # return HTTPException(
-                    #     status_code=status.HTTP_202_ACCEPTED,
-                    #     detail={"Message":"Customer Updated!"}
-                    #     )
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail={
@@ -231,3 +206,23 @@ def remove_customer(data = DeleteUser,user=Depends(admin_required),db = Depends(
 @customer_router.post("/sync-customer/{customer_id}", tags=["Customer"])
 def sync_customer(customer_id: int):
     return sync_single_customer(customer_id)
+
+
+@customer_router.get("/hubspot/customer/{customer_id}", tags=["Customer"])
+def get_customer_from_hubspot(
+    customer_id: int,
+    user=Depends(admin_agent_required),
+    db=Depends(access_db)
+):
+    cursor = db.cursor()
+    cursor.execute(
+        "SELECT hubspot_contact_id FROM customer WHERE customer_id=%s",
+        (customer_id,)
+    )
+    customer = cursor.fetchone()
+
+    if not customer or not customer["hubspot_contact_id"]:
+        raise HTTPException(404, "Customer not synced to HubSpot")
+
+    return fetch_contact_by_id(customer["hubspot_contact_id"])
+

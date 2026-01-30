@@ -1,6 +1,5 @@
 
 import requests, os
-# from main import HUBSPOT_TOKEN
 
 url = "https://api.hubapi.com"
 
@@ -87,17 +86,8 @@ def update_contact(contact_id, customer):
     response = requests.patch(f"{url}/crm/v3/objects/contacts/{contact_id}", json=payload, headers=headers)
     response.raise_for_status()
     return response.json()
-# def sync_contact(customer):
-#     email = customer["customer_email"]
 
-#     contact_id = get_contact_id_by_email(email)
 
-#     if contact_id:
-#         # ✅ UPDATE
-#         return update_contact(contact_id, customer)
-#     else:
-#         # ✅ CREATE
-#         return create_contact_from_db(customer)
 def sync_contact(customer, db):
     email = customer["customer_email"]
 
@@ -134,3 +124,72 @@ def sync_contact(customer, db):
         db.commit()
 
     return contact_id
+
+def fetch_contact_by_email(email: str):
+    HUBSPOT_TOKEN = os.getenv("HUBSPOT_TOKEN")
+    headers = {
+        "Authorization": f"Bearer {HUBSPOT_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "filterGroups": [{
+            "filters": [{
+                "propertyName": "email",
+                "operator": "EQ",
+                "value": email
+            }]
+        }],
+        "properties": [
+            "email",
+
+            "customer_id",
+            "customer_name",
+            "customer_email",
+            "customer_mobile_number",
+            "customer_company_name",
+            "customer_city",
+            "customer_state",
+            "customer_country",
+            "customer_address",
+        ],
+        "limit": 1
+    }
+
+
+    res = requests.post(
+        f"{url}/crm/v3/objects/contacts/search",
+        headers=headers,
+        json=payload
+    )
+    res.raise_for_status()
+
+    results = res.json().get("results", [])
+    return results[0] if results else None
+
+def fetch_contact_by_id(contact_id: str):
+    HUBSPOT_TOKEN = os.getenv("HUBSPOT_TOKEN")
+    headers = {
+        "Authorization": f"Bearer {HUBSPOT_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    res = requests.get(
+        f"{url}/crm/v3/objects/contacts/{contact_id}",
+        headers=headers,
+        params={
+            "properties": [
+                "email",
+
+                "customer_id",
+                "customer_name",
+                "customer_email",
+                "customer_mobile_number",
+                "customer_company_name",
+                "customer_city",
+                "customer_state",
+                "customer_country",
+                "customer_address",
+            ]
+        }
+    )
+    res.raise_for_status()
+    return res.json()
