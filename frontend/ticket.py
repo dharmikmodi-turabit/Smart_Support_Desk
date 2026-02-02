@@ -106,6 +106,18 @@ def ticket_create():
             }
         )
 
+    if st.button("Create Ticket only in Hubspot"):
+        api_call(
+            "POST",
+            "/hubspot_ticket_registration",
+            st.session_state["token"],
+            {
+                "customer_email": customer_email,
+                "issue_title": title,
+                "issue_description": desc,
+                "priority": priority
+            }
+        )
 
 
 

@@ -308,42 +308,35 @@ def customer_my_tickets(user=Depends(customer_required), db=Depends(access_db)):
     return cursor.fetchall()
 
 
-@ticket_router.get("/profile", tags=["Ticket"])
-def profile(user=Depends(get_current_user), db=Depends(access_db)):
-    emp_id = user["emp_id"]
+# @ticket_router.get("/profile", tags=["Ticket"])
+# def profile(user=Depends(get_current_user), db=Depends(access_db)):
+#     emp_id = user["emp_id"]
 
-    cursor = db.cursor()
-    cursor.execute(
-        "select count(*) as total from ticket where service_person_emp_id=%s",
-        (emp_id,)
-    )
-    total = cursor.fetchone()["total"]
+#     cursor = db.cursor()
+#     cursor.execute(
+#         "select count(*) as total from ticket where service_person_emp_id=%s",
+#         (emp_id,)
+#     )
+#     total = cursor.fetchone()["total"]
 
-    cursor.execute(
-        "select count(*) as open from ticket where ticket_status='Open' and service_person_emp_id=%s",
-        (emp_id,)
-    )
-    open_t = cursor.fetchone()["open"]
+#     cursor.execute(
+#         "select count(*) as open from ticket where ticket_status='Open' and service_person_emp_id=%s",
+#         (emp_id,)
+#     )
+#     open_t = cursor.fetchone()["open"]
 
-    cursor.execute(
-        "select count(*) as closed from ticket where ticket_status='Close' and service_person_emp_id=%s",
-        (emp_id,)
-    )
-    closed = cursor.fetchone()["closed"]
+#     cursor.execute(
+#         "select count(*) as closed from ticket where ticket_status='Close' and service_person_emp_id=%s",
+#         (emp_id,)
+#     )
+#     closed = cursor.fetchone()["closed"]
 
-    return {
-        "total": total,
-        "open": open_t,
-        "closed": closed
-    }
+#     return {
+#         "total": total,
+#         "open": open_t,
+#         "closed": closed
+#     }
 
-
-@ticket_router.post("/logout", tags=["Logout"])
-def logout(
-    credentials: HTTPAuthorizationCredentials = Depends(security)
-):
-    redis_client.delete(credentials.credentials)
-    return {"message": "Logged out successfully"}
 
 @ticket_router.get("/customer_ticket_messages/{ticket_id}", tags=["Ticket"])
 def get_ticket_messages(

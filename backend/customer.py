@@ -3,10 +3,9 @@ from database import access_db
 from dependencies import admin_required, admin_agent_required
 from pydantic import BaseModel
 from auth import create_access_token
-from customer_sync import sync_single_customer
 from hubspot_contacts import sync_contact
 from hubspot_contacts import fetch_contact_by_id
-
+from hubspot_delete import delete_hubspot_object
 
 customer_router = APIRouter()
 
@@ -47,7 +46,27 @@ def fetch_all_customers(user=Depends(admin_agent_required),db = Depends(access_d
         status_code=500,
         detail=str(e)
     )
-    
+ 
+def sync_single_customer(customer_id: int):
+    try:
+        db = access_db()
+        cursor = db.cursor()
+
+        cursor.execute(
+            "SELECT * FROM customer WHERE customer_id = %s",
+            (customer_id,)
+        )
+        customer = cursor.fetchone()
+
+        if not customer:
+            return {"error": "Customer not found"}
+
+        sync_contact(customer, db)
+
+        return {"success": True}
+    except Exception as e:
+        return e
+
 
 @customer_router.post("/customer_registration", tags=["Customer"])
 def customer_registration(data:CustomerRegister,user=Depends(admin_agent_required),db = Depends(access_db)):
@@ -226,3 +245,18 @@ def get_customer_from_hubspot(
 
     return fetch_contact_by_id(customer["hubspot_contact_id"])
 
+@customer_router.get("/hubspot/customer-delete/{customer_id}", tags=["Customer"])
+def delete_customer_from_hubspot(customer_id:int,db=Depends(access_db)):
+    try:
+        cursor = db.cursor()
+        cursor.execute(
+            "SELECT hubspot_contact_id FROM customer WHERE customer_id=%s",
+            (customer_id,)
+        )
+        hubspot_id = cursor.fetchone()
+        return delete_hubspot_object(object_type="contacts",object_id=hubspot_id['hubspot_contact_id'])
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=e
+        )

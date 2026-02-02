@@ -78,18 +78,15 @@ else:
 
     menu_labels = [item[0] for item in MENU[role]]
     menu_keys = [item[1] for item in MENU[role]]
-
-    if "menu" not in st.session_state:
-        st.session_state.menu = menu_labels[0]
-
+    
     selected = st.sidebar.radio(
         "Menu",
         menu_labels,
-        index=menu_labels.index(st.session_state.menu)
+        key="menu"
     )
 
-    st.session_state.menu = selected
     menu = dict(zip(menu_labels, menu_keys))[selected]
+
     # ---------------- ROUTING ----------------
     if menu == "dashboard":
         if role == "Customer":

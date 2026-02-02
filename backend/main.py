@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
 import os
-from hubspot_ticket_router import hubspot_ticket_router
+from hubspot_tickets import hubspot_ticket_router
 from employee import employee_router
 from customer import customer_router
 from ticket import ticket_router
