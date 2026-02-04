@@ -34,5 +34,21 @@ app.include_router(hubspot_ticket_router)
 def logout(
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
+    """
+    Log out the current user by deleting their session token from Redis.
+
+    This endpoint invalidates the user's JWT access token, effectively
+    logging them out and preventing further use of the token.
+
+    Args:
+    - credentials (HTTPAuthorizationCredentials, Depends): Extracted JWT token from the Authorization header.
+
+    Returns:
+    - dict: Confirmation message indicating the user has been logged out.
+
+    Raises:
+    - No explicit exceptions; if the token does not exist in Redis, the operation is idempotent.
+    """
+
     redis_client.delete(credentials.credentials)
     return {"message": "Logged out successfully"}

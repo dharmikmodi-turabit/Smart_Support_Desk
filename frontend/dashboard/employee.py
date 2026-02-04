@@ -5,6 +5,42 @@ import plotly.express as px
 
 
 def employee_dashboard(user):
+    """
+    Render the employee dashboard UI for Admins and Agents.
+
+    This dashboard provides operational visibility into the ticketing system
+    and adapts its behavior based on the logged-in employee's role.
+
+    Core capabilities:
+    - Fetch and display tickets based on role:
+        • Admin / Agent → all tickets
+        • Service Person → only assigned tickets
+    - Display KPI metrics for ticket status (Total, Open, In Progress, Closed)
+    - Visualize ticket data using interactive Plotly charts:
+        • Status distribution (donut chart)
+        • Ticket status by priority (stacked bar)
+        • Service person workload (Admins / Agents only)
+    - Present a table of active tickets for quick operational review
+
+    The dashboard communicates with the backend via authenticated API calls
+    and renders a responsive analytics-oriented UI using Streamlit and Plotly.
+
+    Args:
+        user (dict):
+            Authenticated employee payload (JWT-decoded data).
+            Expected keys:
+                - emp_id (str | int): Employee identifier
+                - role (str): One of ["Admin", "Agent", "Service"]
+
+    Side Effects:
+        - Performs authenticated API calls to fetch ticket data
+        - Renders Streamlit widgets and Plotly visualizations
+        - Conditionally displays sections based on user role
+
+    Returns:
+        None
+    """
+
     st.title("👨‍💼 Employee Dashboard")
 
     emp_id = user["emp_id"]

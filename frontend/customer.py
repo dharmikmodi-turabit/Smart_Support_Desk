@@ -3,6 +3,28 @@ from api import api_call
 from ui import apply_global_style
 
 def customer_view():
+    """
+    Display the customer management view.
+
+    This function renders a table of all registered customers by fetching
+    customer data from the backend API. It applies the global UI styling
+    and presents the customer list in a read-only tabular format for
+    administrative review.
+
+    API Calls:
+        - GET /all_customers
+
+    UI Behavior:
+        - Applies global UI styles
+        - Displays customer data in a Streamlit dataframe
+
+    Access Control:
+        - Requires a valid authentication token in session state
+
+    Returns:
+        None
+    """
+
     apply_global_style()
     st.header("👨‍💼 Customer Management")
 
@@ -13,6 +35,33 @@ def customer_view():
 
 
 def customer_add():
+    """
+    Render the customer registration form and create a new customer.
+
+    This function provides a form-based interface to register a new customer.
+    It collects personal, contact, and company details and submits them to
+    the backend customer registration endpoint. Existing customers are fetched
+    in advance to support validation logic (email/mobile uniqueness).
+
+    API Calls:
+        - GET /all_customers
+        - POST /customer_registration
+
+    UI Behavior:
+        - Applies global UI styles
+        - Displays input fields grouped using columns
+        - Shows success feedback on successful creation
+
+    Validation Notes:
+        - Email and mobile uniqueness checks are prepared but currently commented out
+
+    Side Effects:
+        - Creates a new customer record in the backend system
+
+    Returns:
+        None
+    """
+
     apply_global_style()
     st.header("➕ Customer Registration")
 
@@ -72,6 +121,34 @@ def customer_add():
         st.success("Customer created successfully ✅")
 
 def customer_update():
+    """
+    Render the customer update interface and modify existing customer data.
+
+    This function allows an administrator to update customer details by
+    selecting a customer via email. Immutable fields such as email and
+    mobile number are displayed but disabled to prevent modification.
+    Updated customer information is submitted to the backend update endpoint.
+
+    API Calls:
+        - GET /all_customers
+        - PUT /update_customer
+
+    UI Behavior:
+        - Applies global UI styles
+        - Displays a customer selection dropdown
+        - Pre-fills form fields with existing customer data
+        - Clears form fields upon successful submission
+
+    Access Control:
+        - Requires authenticated session with appropriate privileges
+
+    Side Effects:
+        - Updates customer record in the backend database
+
+    Returns:
+        None
+    """
+
     apply_global_style()
     st.subheader("👤 Update Customer")
 

@@ -1,14 +1,11 @@
 import streamlit as st
 import jwt
-
 from auth import login, logout, customer_login
-from employee import employee_add, service_person_tickets, employee_view, employee_update
+from employee import employee_add, service_person_tickets, employee_view, employee_update, employee_chat_dashboard
 from customer import customer_view, customer_add, customer_update
 from dashboard.employee import employee_dashboard
 from dashboard.customer import customer_dashboard
 from ticket import ticket_update, ticket_view, ticket_create, customer_ticket_view
-from employee import employee_chat_dashboard   # 👈 ADD THIS IMPORT
-
 
 # ---------------- CONFIG ----------------
 st.set_page_config(
@@ -19,13 +16,57 @@ st.set_page_config(
 
 st.title("🎫 Smart Support Desk")
 
-
 # ---------------- HELPERS ----------------
 def get_user(token):
+    """
+    Decode a JWT access token and return the user payload.
+
+    This function decodes the JWT without verifying the signature.
+    It is intended for extracting non-sensitive user metadata
+    (e.g., role, user IDs) in trusted internal flows.
+
+    Parameters
+    ----------
+    token : str
+        JWT access token (typically from Authorization header).
+
+    Returns
+    -------
+    dict
+        Decoded JWT payload containing user information such as
+        role, customer_id, emp_id, email, etc.
+
+    Notes
+    -----
+    - Signature verification is disabled.
+    - Do NOT use this method for security-critical validation.
+    - Token authenticity must be ensured upstream.
+    """
     return jwt.decode(token, options={"verify_signature": False})
 
 
 def get_role(token):
+    """
+    Extract the user's role from a JWT access token.
+
+    This is a convenience wrapper around `get_user()` to
+    quickly determine the authorization role of the requester.
+
+    Parameters
+    ----------
+    token : str
+        JWT access token.
+
+    Returns
+    -------
+    str
+        User role (e.g., 'Admin', 'Agent', 'Customer').
+
+    Raises
+    ------
+    KeyError
+        If the 'role' field is missing from the token payload.
+    """
     return get_user(token)["role"]
 
 
