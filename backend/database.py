@@ -3,6 +3,20 @@ from fastapi.exceptions import HTTPException
 
 
 def access_db():
+    """
+    Establish and return a connection to the MySQL database.
+
+    This function connects to the `smart_support_desk` MySQL database
+    using PyMySQL and returns a connection object with dictionary-style
+    cursors, allowing results to be accessed as dictionaries.
+
+    Returns:
+    - pymysql.connections.Connection: Database connection object.
+
+    Raises:
+    - RuntimeError: If the connection to the database fails.
+    """
+
     try:
         connection = pymysql.connect(host='localhost',
                              user='root',
@@ -10,8 +24,5 @@ def access_db():
                              database='smart_support_desk',
                              cursorclass=pymysql.cursors.DictCursor)
         return connection
-    except Exception as e:
-        raise HTTPException(
-        status_code=500,
-        detail=str(e)
-    )
+    except pymysql.MySQLError as e:
+        raise RuntimeError(f"Database connection failed: {e}")

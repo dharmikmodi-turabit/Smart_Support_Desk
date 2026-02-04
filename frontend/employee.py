@@ -1,10 +1,31 @@
 import streamlit as st
 from api import api_call
 from ui import apply_global_style
+import pandas as pd
 
 
 
 def employee_view():
+    """
+    Display the employee management view.
+
+    Fetches all registered employees from the backend and displays them
+    in a read-only data editor. Applies global UI styling for consistency.
+
+    API Calls:
+        - GET /all_employees
+
+    UI Behavior:
+        - Applies global styles
+        - Shows employee list in a Streamlit data editor (read-only)
+
+    Access Control:
+        - Requires valid session token
+
+    Returns:
+        None
+    """
+
     apply_global_style()
     st.title("👨‍💼 Employee Management")
 
@@ -20,6 +41,35 @@ def employee_view():
 
 
 def employee_add(role):
+    """
+    Render the employee registration form and add a new employee.
+
+    Provides a form to register a new employee with fields for name, email,
+    mobile, password, and role type. Validates email and mobile for uniqueness
+    before submitting to the backend.
+
+    API Calls:
+        - GET /all_employees (to fetch existing employees)
+        - POST /employee_registration (to create a new employee)
+
+    UI Behavior:
+        - Applies global UI styling
+        - Shows warnings/errors for duplicate email/mobile
+        - Displays success message on successful registration
+
+    Validation:
+        - Blocks registration if email or mobile already exists
+
+    Side Effects:
+        - Creates a new employee record in the backend
+
+    Parameters:
+        role (str): Role of the current logged-in user (used for UI logic)
+
+    Returns:
+        None
+    """
+
     apply_global_style()
     st.title("➕ Register Employee")
 
@@ -93,6 +143,32 @@ def employee_add(role):
 
 
 def employee_update():
+    """
+    Render the employee update form and modify existing employee details.
+
+    Allows updating employee details such as name, mobile, password, and type.
+    Email is immutable and shown as read-only. Fetches all employees to populate
+    a dropdown for selection. Updates backend via API upon form submission.
+
+    API Calls:
+        - GET /all_employees
+        - PUT /employee_update
+
+    UI Behavior:
+        - Applies global UI styles
+        - Pre-fills form with selected employee details
+        - Supports updating fields and leaving password blank to retain old password
+
+    Access Control:
+        - Requires valid session token
+
+    Side Effects:
+        - Updates employee record in backend
+
+    Returns:
+        None
+    """
+
     apply_global_style()
     st.header("👤 Update Employee")
 
@@ -191,6 +267,26 @@ def employee_update():
 
 
 def service_person_tickets():
+    """
+    Display tickets assigned to the currently logged-in service person.
+
+    Fetches all tickets assigned to the current employee (service person) from
+    the backend and displays them in a read-only data editor.
+
+    API Calls:
+        - GET /my_tickets
+
+    UI Behavior:
+        - Applies global UI styling
+        - Shows assigned tickets in a Streamlit data editor (read-only)
+
+    Access Control:
+        - Requires valid session token
+
+    Returns:
+        None
+    """
+
     apply_global_style()
     st.title("🛠 My Assigned Tickets")
 
@@ -205,12 +301,29 @@ def service_person_tickets():
 
 
 
-import streamlit as st
-import pandas as pd
-from api import api_call
 
 
 def employee_chat_dashboard():
+    """
+    Display the agent ticket inbox for support personnel.
+
+    Fetches all tickets for which the agent may respond, marks tickets that
+    require a reply, and allows selection of a ticket to view conversation history.
+
+    API Calls:
+        - GET /agent_tickets
+
+    UI Behavior:
+        - Shows tickets in a data editor with a "New" indicator for pending replies
+        - Allows selecting a ticket to open chat interface
+
+    Access Control:
+        - Requires valid session token for Admin/Agent
+
+    Returns:
+        None
+    """
+
 
     st.header("🎧 Agent Ticket Inbox")
 
@@ -244,11 +357,34 @@ def employee_chat_dashboard():
 
     agent_ticket_chat(ticket_id)
 
-import streamlit as st
-from api import api_call
-
 
 def agent_ticket_chat(ticket_id):
+    """
+    Display and manage conversation for a specific ticket.
+
+    Fetches the chat messages associated with the given ticket ID and displays
+    them in a chat interface. Allows the agent to send a reply, which is posted
+    to the backend.
+
+    API Calls:
+        - GET /customer_ticket_messages/{ticket_id}
+        - POST /agent_ticket_message/{ticket_id}
+
+    UI Behavior:
+        - Shows chat history using Streamlit chat components
+        - Supports sending new messages via chat input
+        - Refreshes the view after sending a reply
+
+    Parameters:
+        ticket_id (int): ID of the ticket to display and respond to
+
+    Access Control:
+        - Requires valid session token
+
+    Returns:
+        None
+    """
+
 
     st.subheader("💬 Conversation")
 

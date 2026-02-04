@@ -3,10 +3,9 @@ from database import access_db
 from dependencies import admin_required, admin_agent_required
 from pydantic import BaseModel
 from auth import create_access_token
-from customer_sync import sync_single_customer
 from hubspot_contacts import sync_contact
 from hubspot_contacts import fetch_contact_by_id
-
+from hubspot_delete import delete_hubspot_object
 
 customer_router = APIRouter()
 
@@ -30,6 +29,24 @@ class DeleteUser(BaseModel):
 
 @customer_router.get("/all_customers", tags=["Customer"])
 def fetch_all_customers(user=Depends(admin_agent_required),db = Depends(access_db)):
+    """
+    Fetch all customers from the database.
+
+    This endpoint retrieves all records from the `customer` table.
+    Access is restricted to admin and agent users via dependency injection.
+
+    Dependencies:
+    - admin_agent_required: Ensures the requester is an authenticated admin or agent.
+    - access_db: Provides a database connection.
+
+    Returns:
+    - List[dict]: A list of customer records if customers exist.
+
+    Raises:
+    - HTTPException (404): If no customers are found in the database.
+    - HTTPException (500): If any unexpected error occurs during database access.
+    """
+
     try:
         with db:
             with db.cursor() as cursor:
@@ -47,10 +64,82 @@ def fetch_all_customers(user=Depends(admin_agent_required),db = Depends(access_d
         status_code=500,
         detail=str(e)
     )
-    
+ 
+def sync_single_customer(customer_id: int):
+    """
+    Synchronize a single customer record with HubSpot.
+
+    This function retrieves a customer from the local database using the
+    provided `customer_id` and synchronizes the customer data with HubSpot
+    via the `sync_contact` utility.
+
+    Args:
+    - customer_id (int): Unique identifier of the customer to be synchronized.
+
+    Returns:
+    - dict:
+        - {"success": True} if the customer is successfully synchronized.
+        - {"error": "Customer not found"} if no customer exists with the given ID.
+
+    Raises:
+    - HTTPException (500): If an unexpected error occurs during database access
+      or synchronization with HubSpot.
+    """
+
+    try:
+        db = access_db()
+        cursor = db.cursor()
+
+        cursor.execute(
+            "SELECT * FROM customer WHERE customer_id = %s",
+            (customer_id,)
+        )
+        customer = cursor.fetchone()
+
+        if not customer:
+            return {"error": "Customer not found"}
+
+        sync_contact(customer, db)
+
+        return {"success": True}
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
 
 @customer_router.post("/customer_registration", tags=["Customer"])
 def customer_registration(data:CustomerRegister,user=Depends(admin_agent_required),db = Depends(access_db)):
+    """
+    Register a new customer and synchronize with HubSpot.
+
+    This endpoint allows an admin or agent to create a new customer record
+    in the local database after validating email uniqueness and mobile
+    number format. Upon successful creation, the customer is automatically
+    synchronized with HubSpot.
+
+    Dependencies:
+    - admin_agent_required: Ensures the requester is an authenticated admin or agent.
+    - access_db: Provides a database connection.
+
+    Request Body:
+    - CustomerRegister: Customer registration details including name, email,
+      mobile number, company, and address information.
+
+    Returns:
+    - dict:
+        - status_code (int): HTTP 201 status code.
+        - message (str): Confirmation message for successful registration.
+
+    Raises:
+    - HTTPException (400): If the mobile number is invalid.
+    - HTTPException (409): If the email already exists.
+    - HTTPException (500): If an unexpected error occurs during registration
+      or synchronization.
+    """
+
     try:
         with db:
             with db.cursor() as cursor:
@@ -102,6 +191,27 @@ def customer_registration(data:CustomerRegister,user=Depends(admin_agent_require
 
 @customer_router.post("/customer_login", tags=["Customer"])
 def customer_login(data: CustomerLogin, db=Depends(access_db)):
+    """
+    Authenticate a customer and issue an access token.
+
+    This endpoint validates a customer using either email address or
+    mobile number and returns a JWT access token upon successful
+    authentication.
+
+    Dependencies:
+    - access_db: Provides a database connection.
+
+    Request Body:
+    - CustomerLogin: Contains an email address or mobile number for login.
+
+    Returns:
+    - dict:
+        - access_token (str): JWT access token identifying the authenticated customer.
+
+    Raises:
+    - HTTPException (401): If the provided email or mobile number is invalid.
+    """
+
     cursor = db.cursor()
     cursor.execute("""
         select customer_id, customer_email
@@ -121,6 +231,34 @@ def customer_login(data: CustomerLogin, db=Depends(access_db)):
 
 @customer_router.put("/update_customer", tags=["Customer"])
 def update_customer(data : CustomerRegister,user=Depends(admin_agent_required),db = Depends(access_db)):
+    """
+    Update an existing customer's details and synchronize with HubSpot.
+
+    This endpoint allows an admin or agent to update customer information
+    based on the customer's email address. Only provided (non-empty) fields
+    are updated; missing or empty fields retain their existing values.
+    After a successful update, the customer record is synchronized with
+    HubSpot.
+
+    Dependencies:
+    - admin_agent_required: Ensures the requester is an authenticated admin or agent.
+    - access_db: Provides a database connection.
+
+    Request Body:
+    - CustomerRegister: Customer details to update. The email field is used
+      to identify the customer record.
+
+    Returns:
+    - dict:
+        - message (str): Confirmation message indicating successful update
+          and synchronization.
+
+    Raises:
+    - HTTPException (404): If no customer exists with the provided email.
+    - HTTPException (500): If an unexpected error occurs during update or
+      synchronization.
+    """
+
     try:
         with db:
             with db.cursor() as cursor:
@@ -175,7 +313,33 @@ def update_customer(data : CustomerRegister,user=Depends(admin_agent_required),d
     )
 
 @customer_router.delete("/remove_customer", tags=["Customer"])
-def remove_customer(data = DeleteUser,user=Depends(admin_required),db = Depends(access_db)):
+def remove_customer(data : DeleteUser,user=Depends(admin_required),db = Depends(access_db)):
+    """
+    Delete a customer record from the system.
+
+    This endpoint allows an authorized admin user to remove a customer
+    from the database using the customer's email address. The operation
+    is restricted based on the requesting employee's role; service
+    persons are not permitted to delete customers.
+
+    Dependencies:
+    - admin_required: Ensures the requester is an authenticated admin.
+    - access_db: Provides a database connection.
+
+    Request Body:
+    - DeleteUser: Contains the employee ID of the requester and the
+      customer email to be deleted.
+
+    Returns:
+    - int: HTTP 200 status code if the customer is successfully deleted.
+
+    Raises:
+    - HTTPException (401): If the requester does not have permission
+      to delete customers.
+    - HTTPException (404): If the specified customer email does not exist.
+    - HTTPException (500): If an unexpected error occurs during deletion.
+    """
+
     try:
         with db:
             with db.cursor() as cursor:
@@ -204,7 +368,26 @@ def remove_customer(data = DeleteUser,user=Depends(admin_required),db = Depends(
 
 
 @customer_router.post("/sync-customer/{customer_id}", tags=["Customer"])
-def sync_customer(customer_id: int):
+def sync_customer(customer_id: int,
+    user=Depends(admin_agent_required)):
+    """
+    Synchronize a customer with HubSpot by customer ID.
+
+    This endpoint triggers synchronization of a single customer record
+    from the local database to HubSpot using the provided customer ID.
+
+    Path Parameters:
+    - customer_id (int): Unique identifier of the customer to be synchronized.
+
+    Returns:
+    - dict:
+        - {"success": True} if the customer is successfully synchronized.
+        - {"error": "Customer not found"} if the customer does not exist.
+
+    Raises:
+    - HTTPException (500): If an unexpected error occurs during synchronization.
+    """
+
     return sync_single_customer(customer_id)
 
 
@@ -214,15 +397,101 @@ def get_customer_from_hubspot(
     user=Depends(admin_agent_required),
     db=Depends(access_db)
 ):
-    cursor = db.cursor()
-    cursor.execute(
-        "SELECT hubspot_contact_id FROM customer WHERE customer_id=%s",
-        (customer_id,)
-    )
-    customer = cursor.fetchone()
+    """
+    Retrieve a customer record from HubSpot using the local customer ID.
 
-    if not customer or not customer["hubspot_contact_id"]:
-        raise HTTPException(404, "Customer not synced to HubSpot")
+    This endpoint fetches the HubSpot contact associated with a given
+    local customer ID. It first looks up the HubSpot contact ID from
+    the local database and then retrieves the corresponding contact
+    details from HubSpot.
 
-    return fetch_contact_by_id(customer["hubspot_contact_id"])
+    Dependencies:
+    - admin_agent_required: Ensures the requester is an authenticated admin or agent.
+    - access_db: Provides a database connection.
 
+    Path Parameters:
+    - customer_id (int): Local customer ID used to locate the corresponding
+      HubSpot contact.
+
+    Returns:
+    - dict: HubSpot contact data including standard and custom customer
+      properties.
+
+    Raises:
+    - HTTPException (404): If the customer does not exist or is not synced
+      with HubSpot.
+    - HTTPException (500): If an unexpected error occurs during database
+      access or HubSpot communication.
+    """
+
+    try:
+        cursor = db.cursor()
+        cursor.execute(
+            "SELECT hubspot_contact_id FROM customer WHERE customer_id=%s",
+            (customer_id,)
+        )
+        customer = cursor.fetchone()
+
+        if not customer or not customer["hubspot_contact_id"]:
+            raise HTTPException(404, "Customer not synced to HubSpot")
+
+        return fetch_contact_by_id(customer["hubspot_contact_id"])
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+        status_code=500,
+        detail=str(e))
+
+@customer_router.get("/hubspot/customer-delete/{customer_id}", tags=["Customer"])
+def delete_customer_from_hubspot(customer_id:int,db=Depends(access_db)):
+    """
+    Delete a customer from HubSpot using the local customer ID.
+
+    This endpoint deletes a HubSpot contact associated with a given local
+    customer ID. It first retrieves the HubSpot contact ID from the local
+    database and then calls the HubSpot API to delete the contact.
+
+    Dependencies:
+    - access_db: Provides a database connection.
+
+    Path Parameters:
+    - customer_id (int): Local customer ID whose corresponding HubSpot
+      contact will be deleted.
+
+    Returns:
+    - dict: Result of the HubSpot deletion operation, typically:
+        - {"status": "success", "message": "Deleted successfully"} on success
+        - {"status": "error", "status_code": int, "detail": str} on failure
+
+    Raises:
+    - HTTPException (400): If an error occurs during database access or
+      deletion in HubSpot.
+    """
+
+    try:
+        with db.cursor() as cursor:
+            cursor.execute(
+                "SELECT hubspot_contact_id FROM customer WHERE customer_id=%s",
+                (customer_id,)
+            )
+            hubspot_id = cursor.fetchone()
+            if not hubspot_id or not hubspot_id.get("hubspot_contact_id"):
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Customer not synced to HubSpot"
+                )
+
+            return delete_hubspot_object(object_type="contacts",object_id=hubspot_id['hubspot_contact_id'])
+    except HTTPException:
+        raise
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete customer from HubSpot"
+        )

@@ -5,10 +5,38 @@ from ui import apply_global_style
 
 
 def customer_dashboard(user):
+    """
+    Render the customer dashboard UI in Streamlit.
+
+    This dashboard allows a logged-in customer to:
+    - View all their support tickets fetched from the backend API
+    - See high-level ticket KPIs (Total, Open, In Progress, Closed)
+    - Filter tickets by status, priority, and search text
+    - View ticket details in a tabular and detailed format
+    - Access and participate in ticket-level conversations (chat)
+
+    The dashboard communicates with the backend using authenticated
+    API calls and relies on the session token stored in Streamlit
+    session state.
+
+    Args:
+        user (dict):
+            Authenticated customer payload (JWT-decoded data).
+            Currently not used directly, but kept for consistency
+            with other dashboards and future role-based extensions.
+
+    Side Effects:
+        - Makes authenticated API requests to fetch tickets
+        - Renders interactive Streamlit components
+        - Triggers reruns when sending chat messages
+
+    Returns:
+        None
+    """
+
     apply_global_style()
 
     st.title("👤 Customer Dashboard")
-    # st.caption(f"Welcome back, **Customer #{user.get('emp_id')}**")
 
     # ---------------- FETCH DATA ----------------
     tickets = api_call(
@@ -121,6 +149,33 @@ def customer_dashboard(user):
 
 
 def ticket_chat_view(ticket_id):
+    """
+    Display and manage the chat conversation for a specific ticket.
+
+    This function:
+    - Fetches all messages associated with a ticket from the backend
+    - Displays the conversation in a chat-style UI
+      (customer vs agent messages)
+    - Allows the customer to send new messages
+    - Automatically refreshes the UI after sending a message
+
+    Messages are rendered using Streamlit's chat components and
+    are synchronized with the backend ticket messaging APIs.
+
+    Args:
+        ticket_id (int):
+            Unique identifier of the ticket whose conversation
+            should be displayed.
+
+    Side Effects:
+        - Performs authenticated GET and POST API calls
+        - Inserts new ticket messages into the backend
+        - Triggers Streamlit reruns to refresh chat history
+
+    Returns:
+        None
+    """
+
 
     messages = api_call(
         "GET",
