@@ -1,12 +1,10 @@
 from fastapi import status,Depends, HTTPException, APIRouter
 from database import access_db
-from dependencies import get_current_user,admin_agent_required, HTTPAuthorizationCredentials, security, customer_required, admin_agent_customer_required
-from fastapi.security import HTTPAuthorizationCredentials
+from dependencies import get_current_user,admin_agent_required, customer_required, admin_agent_customer_required
 from pydantic import BaseModel
 from typing import Optional
 from enum import Enum
 from datetime import datetime
-from redis_client import redis_client
 from hubspot_tickets import hubspot_create_ticket, hubspot_close_ticket, hubspot_update_ticket
 from hubspot_contacts import get_contact_id_by_email
 
