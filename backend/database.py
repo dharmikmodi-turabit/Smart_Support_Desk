@@ -11,7 +11,8 @@ def access_db():
                              cursorclass=pymysql.cursors.DictCursor)
         return connection
     except Exception as e:
-        raise HTTPException(
-        status_code=500,
-        detail=str(e)
-    )
+    #     raise HTTPException(
+    #     status_code=500,
+    #     detail=str(e)
+    # )         
+        return e
