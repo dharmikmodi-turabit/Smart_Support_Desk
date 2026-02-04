@@ -6,34 +6,9 @@ from dependencies import Depends
 from fastapi import status, APIRouter
 from fastapi.exceptions import HTTPException
 from database import access_db
+from tools.customer import fetch_all_customers
 
-# ai_crm_router = APIRouter()
-
-@tool
-# @ai_crm_router.get("/ai_all_customers", tags=["AI"])
-def fetch_all_customers():
-    '''Fetch all customers from the database'''
-    try:
-        db = access_db()
-        with db:
-            with db.cursor() as cursor:
-                cursor.execute("select * from customer")
-                d = cursor.fetchall()
-                if d:
-                    return d
-                else:
-                    # raise HTTPException(
-                    #         status_code=status.HTTP_404_NOT_FOUND,
-                    #         detail="Customer not found"
-                    #     )
-                    return "Customer not found"
-    except Exception as e:
-    #     raise HTTPException(
-    #     status_code=500,
-    #     detail=str(e)
-    # )
-           return str(e)
-
+ai_crm_router = APIRouter()
 
 llm = ChatGoogleGenerativeAI(
     model="gemini-3-flash-preview",
@@ -41,7 +16,9 @@ llm = ChatGoogleGenerativeAI(
     api_key="AIzaSyBoDoe3kf8Una3D6wpel_L-TvVYrxTs5UU"
 )
 
-llm_with_tools = llm.bind_tools([fetch_all_customers])
+tools = [fetch_all_customers,]
+
+llm_with_tools = llm.bind_tools(tools)
 query = HumanMessage('Give me all customers list')
 
 messages = [query]
