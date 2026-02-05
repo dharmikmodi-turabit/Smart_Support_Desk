@@ -27,15 +27,18 @@ class CustomerRegister(BaseModel):
 
 class DeleteUser(BaseModel):
     email : str
-
+# user = admin_agent_required()
+# print(user)
 @customer_router.get("/all_customers", tags=["Customer"])
 def fetch_all_customers(user=Depends(admin_agent_required),db = Depends(access_db)):
     try:
+        print(user)
         with db:
             with db.cursor() as cursor:
                 cursor.execute("select * from customer")
                 d = cursor.fetchall()
                 if d:
+                    print(d)
                     return d
                 else:
                     raise HTTPException(

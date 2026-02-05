@@ -6,9 +6,10 @@ from hubspot_ticket_router import hubspot_ticket_router
 from employee import employee_router
 from customer import customer_router
 from ticket import ticket_router
-from ai_crm import ai_crm_router
+# from ai_crm import ai_crm_router
 from dependencies import HTTPAuthorizationCredentials, security
 from redis_client import redis_client
+from ai_chat import ai_chat_router
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(BASE_DIR, ".env"), override=True)
@@ -26,7 +27,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(ai_crm_router)
+# app.include_router(ai_crm_router)
+app.include_router(ai_chat_router)
 app.include_router(employee_router)
 app.include_router(customer_router)
 app.include_router(ticket_router)

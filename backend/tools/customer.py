@@ -1,63 +1,97 @@
-from langchain.tools import tool
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.messages import ToolMessage, HumanMessage,AIMessage
-import requests
-from dependencies import Depends
-from fastapi import status, APIRouter
-from fastapi.exceptions import HTTPException
-from database import access_db
+# from langchain.tools import tool
+# from langchain_google_genai import ChatGoogleGenerativeAI
+# from langchain_core.messages import ToolMessage, HumanMessage,AIMessage
+# import requests
+# from dependencies import Depends, admin_agent_required
+# from fastapi import status, APIRouter
+# from fastapi.exceptions import HTTPException
+# from database import access_db
 
-# ai_crm_router = APIRouter()
+# # ai_crm_router = APIRouter()
+# API_BASE_URL = "http://192.168.1.32:8000"
+# @tool
+# def fetch_all_customers():
+#     '''Fetch all customers from the database'''
+#     try:
+#         # db = access_db()
+#         # with db:
+#         #     with db.cursor() as cursor:
+#         #         cursor.execute("select * from customer")
+#         #         d = cursor.fetchall()
+#         #         if d:
+#         #             return d
+#         #         else:
+#         #             # raise HTTPException(
+#         #             #         status_code=status.HTTP_404_NOT_FOUND,
+#         #             #         detail="Customer not found"
+#         #             #     )
+#         #             return "Customer not found"
+#         # user = admin_agent_required()
+#         # print(user)
+#         response = requests.get(
+#             f"{API_BASE_URL}/all_customers",
+#             # json=payload,
+#             timeout=10
+#         )
+
+#         print(response)
+#         if response.status_code != 200:
+#             return {
+#                 "error": True,
+#                 "status_code": response.status_code,
+#                 "detail": response.text
+#             }
+
+#         return response.json()
+#     except Exception as e:
+#            return str(e)
+
+
+
+
+from langchain.tools import tool
+import requests
+
+API_BASE_URL = "http://127.0.0.1:8000"
 
 @tool
 def fetch_all_customers():
-    '''Fetch all customers from the database'''
+    """
+    Fetch all customers from the database
+    Authentication is handled internally.
+
+    """
+
     try:
-        db = access_db()
-        with db:
-            with db.cursor() as cursor:
-                cursor.execute("select * from customer")
-                d = cursor.fetchall()
-                if d:
-                    return d
-                else:
-                    # raise HTTPException(
-                    #         status_code=status.HTTP_404_NOT_FOUND,
-                    #         detail="Customer not found"
-                    #     )
-                    return "Customer not found"
-    except Exception as e:
-           return str(e)
+        # print("****************** tool activated ",token)
+        print("12345678")
+        response = requests.get(
+            f"{API_BASE_URL}/all_customers",
+            # headers={
+            #     "Authorization": token
+            # },
+            timeout=10
+        )
 
+        if response.status_code == 401:
+            return {
+                "success": False,
+                "message": "You are not authorized to view customer data"
+            }
 
-llm = ChatGoogleGenerativeAI(
-    model="gemini-3-flash-preview",
-    temperature=0,
-    api_key="AIzaSyBoDoe3kf8Una3D6wpel_L-TvVYrxTs5UU"
-)
+        if response.status_code != 200:
+            return {
+                "success": False,
+                "message": "Failed to retrieve customers"
+            }
 
-llm_with_tools = llm.bind_tools([fetch_all_customers])
-query = HumanMessage('Give me all customers list')
+        return {
+            "success": True,
+            "data": response.json()
+        }
 
-messages = [query]
-print(messages)
-ai_response = llm_with_tools.invoke(messages)
-print(ai_response)
-messages.append(ai_response)
-
-tool_call = ai_response.tool_calls[0]
-
-tool_output = fetch_all_customers.invoke(tool_call)
-
-messages.append(
-    ToolMessage(
-        tool_call_id=tool_call["id"],
-        content=str(tool_output)
-    )
-)
-
-final_response = llm_with_tools.invoke(messages)
-print(final_response.content)
-
-# print("----------________________-------------------",result)
-# print(result.content)
+    except requests.exceptions.Timeout:
+        return {
+            "success": False,
+            "message": "The request took too long to respond"
+        }
