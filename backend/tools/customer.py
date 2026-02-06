@@ -5,7 +5,8 @@
 # from dependencies import Depends, admin_agent_required
 # from fastapi import status, APIRouter
 # from fastapi.exceptions import HTTPException
-# from database import access_db
+from database import access_db
+from pydantic import BaseModel
 
 # # ai_crm_router = APIRouter()
 # API_BASE_URL = "http://192.168.1.32:8000"
@@ -47,51 +48,72 @@
 #            return str(e)
 
 
-
+class Fetch_all_customer(BaseModel):
+    token : str
 
 from langchain.tools import tool
 import requests
 
 API_BASE_URL = "http://127.0.0.1:8000"
 
-@tool
-def fetch_all_customers():
-    """
-    Fetch all customers from the database
-    Authentication is handled internally.
+# @tool
+# def fetch_all_customers(token:str) -> dict:
+#     """
+#     Fetch all customers from the database
+#     Authentication is handled internally.
+#     # If the LLM passed an empty string, fallback to the token injected from the FastAPI request context
 
-    """
+#     """
+#     # actual_token = token or context_stored_token
 
-    try:
-        # print("****************** tool activated ",token)
-        print("12345678")
-        response = requests.get(
-            f"{API_BASE_URL}/all_customers",
-            # headers={
-            #     "Authorization": token
-            # },
-            timeout=10
-        )
+#     try:
+#         # print("****************** tool activated ",token)
+#         print("12345678")
+#         response = requests.get(
+#             f"{API_BASE_URL}/all_customers",
+#             headers={
+#                 "Authorization": token
+#             },
+#             timeout=10
+#         )
+#         # response.raise_for_status()
+#         # return response.json()
 
-        if response.status_code == 401:
-            return {
-                "success": False,
-                "message": "You are not authorized to view customer data"
+#         # if response.status_code == 401:
+#         #     return {
+#         #         "success": False,
+#         #         "message": "You are not authorized to view customer data"
+#         #     }
+
+#         # if response.status_code != 200:
+#         #     return {
+#         #         "success": False,
+#         #         "message": "Failed to retrieve customers"
+#         #     }
+
+
+#         return {
+#             "success": True,
+#             "data": response.json()
+#         }
+
+#     except requests.exceptions.Timeout:
+#         return {
+#             "success": False,
+#             "message": "The request took too long to respond"
+#         }
+
+
+@tool("fetch_all_customers",args_schema=Fetch_all_customer)
+def fetch_all_customers(token:str) -> list[dict]:
+    """Fetch all customers from the database"""
+    print("Hello===============",token)
+    response = requests.get(
+        f"{API_BASE_URL}/all_customers",
+        headers={
+                "Authorization": f"Bearer {token}"
             }
-
-        if response.status_code != 200:
-            return {
-                "success": False,
-                "message": "Failed to retrieve customers"
-            }
-
-        return {
-            "success": True,
-            "data": response.json()
-        }
-
-    except requests.exceptions.Timeout:
-        return {
-            "success": False,
-            "message": "The request took too long to respond"
-        }
+    )
+    response.raise_for_status() 
+    print(response.json())
+    return response.json()

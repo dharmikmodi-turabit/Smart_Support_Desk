@@ -26,6 +26,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# @app.get("/")
+# def root():
+#     return {"status": "ok"}
+
+
 
 # app.include_router(ai_crm_router)
 app.include_router(ai_chat_router)
