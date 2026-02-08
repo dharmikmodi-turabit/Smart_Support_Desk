@@ -66,30 +66,73 @@ def ai_chatbot_page():
                 
 
             # CASE 1: API returns structured table
-            if isinstance(ai_response, dict) and ai_response.get("data"):
-                df = pd.DataFrame(ai_response)
+            # if isinstance(ai_response, dict) and ai_response.get("data"):
+            #     df = pd.DataFrame(ai_response)
 
-                st.dataframe(
-                    df,
-                    use_container_width=True,
-                    hide_index=True
-                )
+            #     st.dataframe(
+            #         df,
+            #         use_container_width=True,
+            #         hide_index=True
+            #     )
+
+            #     st.session_state.ai_chat_history.append({
+            #         "role": "assistant",
+            #         "content": ai_response.get("message", ""),
+            #         "table": ai_response["data"]
+            #     })
+            # if isinstance(ai_response, dict) and ai_response.get("data"):
+
+            #     rows = ai_response["data"]   # ✅ real DB rows
+            #     df = pd.DataFrame(rows)
+
+            #     st.dataframe(
+            #         df,
+            #         use_container_width=True,
+            #         hide_index=True
+            #     )
+
+            #     st.session_state.ai_chat_history.append({
+            #         "role": "assistant",
+            #         "content": "Here are the customers",
+            #         "data": rows
+            #     })
+            # ---------------- AI RESPONSE HANDLING ----------------
+
+            if isinstance(ai_response, dict) and ai_response.get("data"):
+                # Tool / table response
+                rows = ai_response["data"]
+
+                df = pd.DataFrame(rows)
+                st.dataframe(df, use_container_width=True, hide_index=True)
 
                 st.session_state.ai_chat_history.append({
                     "role": "assistant",
-                    "content": ai_response.get("message", ""),
-                    "table": ai_response["data"]
+                    "content": "Here are the customers",
+                    "data": rows
                 })
 
-            # CASE 2: Normal text response
             else:
-                print("^^^^^^^^^^^^^^^^^^^^^^>>>>>>>>>>>>>>>>>>>>>>")
-                print(ai_response)
-                if ai_response is None:
-                    print(ai_response)
+                # Normal text response
+                text = ai_response if isinstance(ai_response, str) else ""
 
-            # Store AI message
-            st.session_state.ai_chat_history.append({
-                "role": "assistant",
-                "content": ai_response or ""
-            })
+                st.markdown(text)
+
+                st.session_state.ai_chat_history.append({
+                    "role": "assistant",
+                    "content": text
+                })
+
+
+
+            # # CASE 2: Normal text response
+            # else:
+            #     print("^^^^^^^^^^^^^^^^^^^^^^>>>>>>>>>>>>>>>>>>>>>>")
+            #     print(ai_response)
+            #     if ai_response is None:
+            #         print(ai_response)
+
+            # # Store AI message
+            # st.session_state.ai_chat_history.append({
+            #     "role": "assistant",
+            #     "content": ai_response or ""
+            # })

@@ -10,9 +10,6 @@ def access_db():
                              database='smart_support_desk',
                              cursorclass=pymysql.cursors.DictCursor)
         return connection
-    except Exception as e:
-    #     raise HTTPException(
-    #     status_code=500,
-    #     detail=str(e)
-    # )         
-        return e
+    except pymysql.MySQLError as e:
+        print("DB Connection Error:", e)
+        raise HTTPException(status_code=500, detail="Database connection failed")
