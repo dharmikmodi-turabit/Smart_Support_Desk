@@ -66,18 +66,18 @@ else:
             ("📊 Dashboard", "dashboard"),
             ("👥 Customers", "customers"),
             ("🎫 Tickets", "tickets"),
-            # ("🤖 Chatbot", "chatbot"),
+            ("🤖 Chatbot", "chatbot"),
             ("🚪 Logout", "logout"),
         ],
         "Service Person": [
             ("📊 Dashboard", "dashboard"),
             ("🎫 Tickets", "tickets"),
-            # ("🤖 Chatbot", "chatbot"),
+            ("🤖 Chatbot", "chatbot"),
             ("🚪 Logout", "logout"),
         ],
         "Customer": [
             ("📊 Dashboard", "dashboard"),
-            # ("🤖 Chatbot", "chatbot"),
+            ("🤖 Chatbot", "chatbot"),
             ("🚪 Logout", "logout"),
         ],
     }

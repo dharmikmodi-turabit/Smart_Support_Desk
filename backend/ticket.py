@@ -134,6 +134,7 @@ def ticket_registration(data:TicketRegister,user=Depends(admin_agent_required),d
                     detail="Customer not found",
                 ) 
     except Exception as e:
+        print("error=========================",e)
         raise HTTPException(
         status_code=500,
         detail=str(e)

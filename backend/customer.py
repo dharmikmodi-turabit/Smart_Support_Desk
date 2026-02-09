@@ -6,6 +6,7 @@ from auth import create_access_token
 from customer_sync import sync_single_customer
 from hubspot_contacts import sync_contact
 from hubspot_contacts import fetch_contact_by_id
+from typing import Optional
 
 
 customer_router = APIRouter()
@@ -38,7 +39,7 @@ def fetch_all_customers(user=Depends(admin_agent_required),db = Depends(access_d
                 cursor.execute("select * from customer")
                 d = cursor.fetchall()
                 if d:
-                    print(d)
+                    # print(d)
                     return d
                 else:
                     raise HTTPException(
@@ -51,6 +52,7 @@ def fetch_all_customers(user=Depends(admin_agent_required),db = Depends(access_d
         detail=str(e)
     )
     
+
 
 @customer_router.post("/customer_registration", tags=["Customer"])
 def customer_registration(data:CustomerRegister,user=Depends(admin_agent_required),db = Depends(access_db)):
@@ -95,8 +97,6 @@ def customer_registration(data:CustomerRegister,user=Depends(admin_agent_require
 
                 return {"status_code":status.HTTP_201_CREATED, "message":"Customer registered"}
     except Exception as e:
-        print(e)
-        print(str(e))
         raise HTTPException(
         status_code=500,
         detail=str(e)
@@ -121,9 +121,18 @@ def customer_login(data: CustomerLogin, db=Depends(access_db)):
         "role": "Customer"
     })}
 
+class Update_customer(BaseModel):
+    name : Optional[str] = None
+    email : str | None = None
+    mobile_number : str | None = None
+    company_name : Optional[str] = None
+    city : Optional[str] = None
+    state : Optional[str] = None
+    country : Optional[str] = None
+    address : Optional[str] = None
 
 @customer_router.put("/update_customer", tags=["Customer"])
-def update_customer(data : CustomerRegister,user=Depends(admin_agent_required),db = Depends(access_db)):
+def update_customer(data : Update_customer,user=Depends(admin_agent_required),db = Depends(access_db)):
     try:
         with db:
             with db.cursor() as cursor:
@@ -139,13 +148,13 @@ def update_customer(data : CustomerRegister,user=Depends(admin_agent_required),d
                     customer_country = %s, 
                     customer_address = %s 
                     where customer_email = %s'''
-                    values = (data.name if data.name != "" else d['customer_name'],
-                              data.mobile_number if data.mobile_number != "" else d['customer_mobile_number'],
-                              data.company_name if data.company_name != "" else d['customer_company_name'],
-                              data.city if data.city != "" else d['customer_city'],
-                              data.state if data.state != "" else d['customer_state'],
-                              data.country if data.country != "" else d['customer_country'],
-                              data.address if data.address != "" else d['customer_address'],
+                    values = (data.name if data.name != "" and data.name is not None else d['customer_name'],
+                              data.mobile_number if data.mobile_number != "" and data.mobile_number is not None else d['customer_mobile_number'],
+                              data.company_name if data.company_name != "" and data.company_name is not None else d['customer_company_name'],
+                              data.city if data.city != "" and data.city is not None else d['customer_city'],
+                              data.state if data.state != ""and data.state is not None else d['customer_state'],
+                              data.country if data.country != "" and data.country is not None else d['customer_country'],
+                              data.address if data.address != "" and data.address is not None else d['customer_address'],
                               data.email)
                     cursor.execute(query,values)
                     db.commit()
@@ -174,7 +183,7 @@ def update_customer(data : CustomerRegister,user=Depends(admin_agent_required),d
     except Exception as e:
         raise HTTPException(
         status_code=500,
-        detail="dharmik"+str(e)
+        detail=str(e)
     )
 
 @customer_router.delete("/remove_customer", tags=["Customer"])
@@ -221,6 +230,26 @@ def get_customer_from_hubspot(
     cursor.execute(
         "SELECT hubspot_contact_id FROM customer WHERE customer_id=%s",
         (customer_id,)
+    )
+    customer = cursor.fetchone()
+
+    if not customer or not customer["hubspot_contact_id"]:
+        raise HTTPException(404, "Customer not synced to HubSpot")
+
+    return fetch_contact_by_id(customer["hubspot_contact_id"])
+
+
+@customer_router.get("/hubspot/customer_email/{customer_email}", tags=["Customer"])
+def get_customer_from_hubspot_by_email(
+    customer_email: str,
+    user=Depends(admin_agent_required),
+    db=Depends(access_db)
+):
+    cursor = db.cursor()
+    print(customer_email)
+    cursor.execute(
+        "SELECT hubspot_contact_id FROM customer WHERE customer_email=%s",
+        (customer_email,)
     )
     customer = cursor.fetchone()
 

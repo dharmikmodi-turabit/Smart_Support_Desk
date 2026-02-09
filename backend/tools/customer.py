@@ -1,119 +1,178 @@
-# from langchain.tools import tool
-# from langchain_google_genai import ChatGoogleGenerativeAI
-# from langchain_core.messages import ToolMessage, HumanMessage,AIMessage
-# import requests
-# from dependencies import Depends, admin_agent_required
-# from fastapi import status, APIRouter
-# from fastapi.exceptions import HTTPException
+
 from database import access_db
-from pydantic import BaseModel
-
-# # ai_crm_router = APIRouter()
-# API_BASE_URL = "http://192.168.1.32:8000"
-# @tool
-# def fetch_all_customers():
-#     '''Fetch all customers from the database'''
-#     try:
-#         # db = access_db()
-#         # with db:
-#         #     with db.cursor() as cursor:
-#         #         cursor.execute("select * from customer")
-#         #         d = cursor.fetchall()
-#         #         if d:
-#         #             return d
-#         #         else:
-#         #             # raise HTTPException(
-#         #             #         status_code=status.HTTP_404_NOT_FOUND,
-#         #             #         detail="Customer not found"
-#         #             #     )
-#         #             return "Customer not found"
-#         # user = admin_agent_required()
-#         # print(user)
-#         response = requests.get(
-#             f"{API_BASE_URL}/all_customers",
-#             # json=payload,
-#             timeout=10
-#         )
-
-#         print(response)
-#         if response.status_code != 200:
-#             return {
-#                 "error": True,
-#                 "status_code": response.status_code,
-#                 "detail": response.text
-#             }
-
-#         return response.json()
-#     except Exception as e:
-#            return str(e)
-
-
-class Fetch_all_customer(BaseModel):
-    token : str
-
+from pydantic import BaseModel, ValidationError
 from langchain.tools import tool
+from typing import Optional
 import requests
 
 API_BASE_URL = "http://127.0.0.1:8000"
 
-# @tool
-# def fetch_all_customers(token:str) -> dict:
-#     """
-#     Fetch all customers from the database
-#     Authentication is handled internally.
-#     # If the LLM passed an empty string, fallback to the token injected from the FastAPI request context
+class Fetch_all_customer(BaseModel):
+    token : str | None = None
 
-#     """
-#     # actual_token = token or context_stored_token
+class Fetch_customer_by_email(BaseModel):
+    token : str | None = None
+    email : str
 
-#     try:
-#         # print("****************** tool activated ",token)
-#         print("12345678")
-#         response = requests.get(
-#             f"{API_BASE_URL}/all_customers",
-#             headers={
-#                 "Authorization": token
-#             },
-#             timeout=10
-#         )
-#         # response.raise_for_status()
-#         # return response.json()
+class Create_customer(BaseModel):
+    name : str | None = None
+    email : str | None = None
+    mobile_number : str | None = None
+    company_name : str | None = None
+    city : str | None = None
+    state : str | None = None
+    country : str | None = None
+    address : str | None = None
 
-#         # if response.status_code == 401:
-#         #     return {
-#         #         "success": False,
-#         #         "message": "You are not authorized to view customer data"
-#         #     }
-
-#         # if response.status_code != 200:
-#         #     return {
-#         #         "success": False,
-#         #         "message": "Failed to retrieve customers"
-#         #     }
+class Update_customer(BaseModel):
+    name : Optional[str] = None
+    email : str | None = None
+    company_name : Optional[str] = None
+    city : Optional[str] = None
+    state : Optional[str] = None
+    country : Optional[str] = None
+    address : Optional[str] = None
+    token : str | None = None
 
 
-#         return {
-#             "success": True,
-#             "data": response.json()
-#         }
-
-#     except requests.exceptions.Timeout:
-#         return {
-#             "success": False,
-#             "message": "The request took too long to respond"
-#         }
 
 
 @tool("fetch_all_customers",args_schema=Fetch_all_customer)
 def fetch_all_customers(token:str) -> list[dict]:
-    """Fetch all customers from the database"""
+    """
+    Fetch all customers from the database
+    if user mention specification to fetch then fetch by that field or specification else fetch all customers
+    """
+    try:
+        response = requests.get(
+            f"{API_BASE_URL}/all_customers",
+            headers={
+                    "Authorization": f"Bearer {token}"
+                }
+        )
+
+        return response.json()
+    except Exception as e:
+        return str(e)
+
+@tool("fetch_customer_email",args_schema=Fetch_customer_by_email)
+def fetch_customer_by_email(token:str,email:str) -> list[dict]:
+    """
+    Fetch customer by email from the hubspot,
+    email is mandotory for fetch customer .
+    """
     print("Hello===============",token)
+    print("email---------------",email)
     response = requests.get(
-        f"{API_BASE_URL}/all_customers",
+        f"{API_BASE_URL}/hubspot/customer_email/{email}",
         headers={
                 "Authorization": f"Bearer {token}"
             }
     )
-    response.raise_for_status() 
-    print(response.json())
-    return response.json()
+    print(response.json()['properties'])
+    return [response.json()['properties']]
+
+
+
+
+@tool("create_customer", args_schema=Create_customer)
+def create_customer(
+    name: str,
+    email: str,
+    mobile_number: str,
+    company_name: str,
+    city: str,
+    state: str,
+    country: str,
+    address: str,
+    token: str   # backend injected
+) -> dict:
+    """
+    Create a new customer in the CRM system.
+    Requires Admin or Agent authorization.
+    All fields are mandatory.
+    """
+    try:
+        payload = {
+                "name": name,
+                "email": email,
+                "mobile_number": mobile_number,
+                "company_name": company_name,
+                "city": city,
+                "state": state,
+                "country": country,
+                "address": address,
+            }
+
+
+        response = requests.post(
+            f"{API_BASE_URL}/customer_registration",
+            json=payload,
+            headers={
+                "Authorization": f"Bearer {token}"
+            }
+        )
+        print("+++++++++++ response +++++++++++",response.json())
+        return response.json()
+
+    except KeyError as e:
+        return {
+            "error": "Missing required field",
+            "required_fields": [
+                "token", "name", "email", "mobile_number",
+                "company_name", "city", "state", "country", "address"
+            ],
+            "missing_field": str(e)
+        }
+
+    except ValidationError as e:
+        return {
+            "error": "Invalid input data",
+            "details": e.errors()
+        }
+
+
+@tool("update_customer", args_schema=Update_customer)
+def update_customer(
+    token: str,   # backend injected
+    email: str,
+    **kwargs,
+) -> dict:
+    """
+    Update existing customer in the system and Database.
+    Requires Admin or Agent authorization.
+    All fields are not mandatory but email and token is compulsory.
+    """
+    try:
+        
+        payload = {"email": email}
+
+        for k, v in kwargs.items():
+            if v not in (None, "", []):
+                payload[k] = v
+        print("????????? payload ??????????",payload)
+
+        response = requests.put(
+            f"{API_BASE_URL}/update_customer",
+            json=payload,
+            headers={
+                "Authorization": f"Bearer {token}"
+            }
+        )
+        return response.json()
+
+    except KeyError as e:
+        return {
+            "error": "Missing required field",
+            "required_fields": [
+                "token", "name", "email", "mobile_number",
+                "company_name", "city", "state", "country", "address"
+            ],
+            "missing_field": str(e)
+        }
+
+    except ValidationError as e:
+        return {
+            "error": "Invalid input data",
+            "details": e.errors()
+        }

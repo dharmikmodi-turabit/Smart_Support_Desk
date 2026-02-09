@@ -118,7 +118,7 @@ def employee_login(data: Login, db=Depends(access_db)):
                         WHERE e.employee_email = %s
                     """, (data.email,))
                 user = cursor.fetchone()
-                print(user)
+                # print(user)
 
                 if not user or user["employee_password"] != data.password:
                     raise HTTPException(status_code=401, detail="Invalid credentials")
