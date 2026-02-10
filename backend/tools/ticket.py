@@ -120,11 +120,12 @@ def emp_my_tickets(token: str) -> dict:
         to the logged-in employee, or an error message if the request fails.
     """
     try:
+        print(token)
         response = requests.get(
             f"{API_BASE_URL}/my_tickets",
             headers={"Authorization": f"Bearer {token}"}
         )
-
+        print(response)
         return response.json()
 
     except Exception as e:
@@ -133,7 +134,6 @@ def emp_my_tickets(token: str) -> dict:
 
 class CustomerMyTickets(BaseModel):
     token: str   # backend injected
-
 
 @tool("customer_my_tickets", args_schema=CustomerMyTickets)
 def customer_my_tickets(token: str) -> dict:
@@ -161,8 +161,12 @@ def customer_my_tickets(token: str) -> dict:
     except Exception as e:
         return {"error": str(e)}
 
-@tool("fetch_all_tickets")
-def fetch_all_tickets(token: str):
+class Fetch_all_tickets(BaseModel):
+    token : str | None = None
+
+@tool("fetch_all_tickets",args_schema=Fetch_all_tickets)
+def fetch_all_tickets(token: str=None) -> list[dict]:
+    
     """
     Fetch all tickets from the system.
 
@@ -170,12 +174,45 @@ def fetch_all_tickets(token: str):
     Authentication is handled via injected token.
     """
     try:
+        # if not token:
+        #     return {"detail": "Authentication token missing."}
+        print("_________ Token ___________",token)
         response = requests.get(
             f"{API_BASE_URL}/all_tickets",
             headers={
                 "Authorization": f"Bearer {token}"
-            }
+            },
+            # timeout=20
         )
         return response.json()
     except Exception as e:
         return {"detail": str(e)}
+    
+@tool
+def fetch_tickets_by_customer(customer_email: str, token: str, user: dict):
+    """
+    Fetch tickets for a specific customer.
+    Allowed only for ADMIN or AGENT.
+    """
+
+
+@tool
+def ticket_analysis_per_emp(emp_id: int, token: str=None):
+    """
+    Fetch ticket analytics (counts) for an employee.
+    """
+    headers = {"Authorization": f"Bearer {token}"}
+    print("$$$$$$$ EMPLOYEE ID ",emp_id)
+    resp = requests.post(
+        f"{API_BASE_URL}/ticket_analysis_per_emp",
+        params={"emp_id": emp_id},
+        headers=headers,
+        timeout=10
+    )
+    print(";;;;;;;;;;;;;; Response ",resp)
+    print(";;;;;;;;;;;;;; Response ",resp.json())
+
+    if resp.status_code != 200:
+        return {"detail": resp.json().get("detail", "Failed to fetch analysis")}
+
+    return resp.json()

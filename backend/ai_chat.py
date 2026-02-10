@@ -2,13 +2,13 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.exceptions import HTTPException
 from pydantic import BaseModel
 from dependencies import get_current_user
-from typing import Optional, List
+from typing import Optional, List, Dict, Union
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage
 import requests
 from tools.customer import fetch_all_customers, create_customer, fetch_customer_by_email, update_customer
-from tools.ticket import create_ticket, emp_my_tickets, customer_my_tickets, fetch_all_tickets
-import json, os
+from tools.ticket import create_ticket, emp_my_tickets, customer_my_tickets, fetch_all_tickets, fetch_tickets_by_customer, ticket_analysis_per_emp
+import json, os, re
 from langchain_groq import ChatGroq
 # from ai_engine import llm_with_tools, extract_text/
 
@@ -45,7 +45,12 @@ tools = [
     fetch_customer_by_email,
     create_customer,
     update_customer,
-    create_ticket
+    create_ticket,
+    emp_my_tickets,
+    fetch_all_tickets,
+    customer_my_tickets,
+    fetch_tickets_by_customer,
+    ticket_analysis_per_emp
 ]
 
 llm_with_tools = llm.bind_tools(tools)
@@ -78,13 +83,23 @@ def extract_text(content):
     return str(content)
 
 
+def extract_json(text: str):
+    try:
+        match = re.search(r"\[.*\]", text, re.S)
+        if match:
+            return json.loads(match.group())
+    except:
+        pass
+    return []
+
+
 class ChatRequest(BaseModel):
     prompt: str
 
 
 class ChatResponse(BaseModel):
     message: str
-    data: Optional[List[dict]] = None
+    data: Optional[Union[List[dict], Dict]] = None
 
 
 
@@ -115,13 +130,13 @@ def chat_with_ai(
     # 🔐 Auth already validated by dependency
     role = user.get("role", "unknown")
     auth_header = request.headers.get("authorization")
-    token = None
+    # token = None
     if auth_header: 
         token = auth_header.split(" ")[1]
+    print("********** Token ***************",token)
 
     user_id = user.get("id")
     draft = CUSTOMER_DRAFTS.get(user_id, {})
-
 
 
     messages = [
@@ -143,6 +158,7 @@ You are NOT allowed to:
 - Invent data or assumptions
 - Explain your reasoning or tool execution
 
+User role: {role}
 ------------------------------------
 SUPPORTED ACTIONS ONLY
 ------------------------------------
@@ -156,8 +172,10 @@ CUSTOMER:
 
 TICKET:
 5. Create ticket
-6. Fetch my tickets (employee)
+6. Fetch all tickets (Admin or Agent)
+6. Fetch my tickets (Service Person)
 7. Fetch my tickets (customer)
+8. Fetch tickets by customer (Admin or Agent only)
 
 ------------------------------------
 INTENT → ACTION MAPPING
@@ -166,9 +184,18 @@ INTENT → ACTION MAPPING
 If the user says:
 - "my tickets", "show my tickets", "tickets assigned to me"
   → Fetch MY tickets
+- "tickets of customer"
+- "customer wise tickets"
+- "tickets for customer <email>"
+
+→ Fetch tickets by customer
+
+Only ADMIN or AGENT can fetch tickets for another customer.
+CUSTOMER is not allowed.
 
 Decision rules:
-- If user role is EMPLOYEE or AGENT → call emp_my_tickets
+- If user role is ADMIN or AGENT → call fetch_all_tickets
+- If user role is SERVICE PERSON → call emp_my_tickets
 - If user role is CUSTOMER → call customer_my_tickets
 
 ------------------------------------
@@ -218,6 +245,10 @@ Required:
 - issue_type
 - issue_priority
 
+Fetch Tickets by Customer:
+Required:
+- customer_email
+
 ------------------------------------
 TOOL CALL RULES (MANDATORY)
 ------------------------------------
@@ -242,6 +273,54 @@ If the user asks:
 
 → Call fetch_all_tickets
 
+------------------------------------
+FILTERING RULE (VERY IMPORTANT)
+------------------------------------
+If the user requests filtering such as:
+- "high priority tickets"
+- "medium priority tickets"
+- "open tickets"
+- "closed tickets"
+- "my high priority tickets"
+
+The tool itself may not support filtering.
+
+In such cases:
+- ALWAYS call the correct ticket-fetching tool FIRST:
+    - SERVICE PERSON → emp_my_tickets
+    - CUSTOMER → customer_my_tickets
+    - ADMIN / AGENT → fetch_all_tickets
+
+- DO NOT refuse the request
+- DO NOT say filtering is unsupported
+- Filtering will be applied later by the system automatically
+- Your job is ONLY to select the correct base fetch operation
+
+------------------------------------
+ROLE-BOUND TICKET FETCHING (CRITICAL)
+------------------------------------
+
+When the user intent is to fetch THEIR OWN tickets:
+
+IF User role = CUSTOMER:
+- ALWAYS call customer_my_tickets
+- NEVER call emp_my_tickets
+
+IF User role = Service Person:
+- ALWAYS call emp_my_tickets
+- NEVER call customer_my_tickets
+
+The phrase "my tickets" ALWAYS refers to the authenticated user.
+Do NOT infer or switch roles.
+Do NOT guess.
+
+If the user is a CUSTOMER:
+- They are NOT allowed to fetch all tickets
+- "all tickets" must be rejected or clarified
+
+If the user is Agent or ADMIN:
+- "all tickets" → fetch_all_tickets
+
 
 ------------------------------------
 EMAIL VALIDATION RULE
@@ -263,12 +342,13 @@ FINAL RULE
 
 Your goal is SAFE, PREDICTABLE, and CORRECT CRM automation.
 
-User role: {role}
 
                 """
         ),
         HumanMessage(content=payload.prompt)
     ]
+    print("==================user-----------------",user)
+    print("TOken is here ", token)
 
     ai_response = llm_with_tools.invoke(messages)
     print("AI RESPONSE:", ai_response)
@@ -278,6 +358,7 @@ User role: {role}
         tool_call = ai_response.tool_calls[0]
         tool_name = tool_call.get("name")
         # print(tool_name)
+        #---------------------------- Customer ----------------------------
         if tool_name == "fetch_all_customers":
             tool_args = {
                 "token": token,
@@ -287,7 +368,7 @@ User role: {role}
             customers = fetch_all_customers.invoke(tool_args)
             if isinstance(customers,dict) and customers.get('detail'):
                 return {"message":customers['detail']}
-
+            print("***** customers **********",customers)
             return {
                 "message": "Customers fetched successfully",
                 "data": customers
@@ -358,6 +439,7 @@ User role: {role}
                 "message": result.get("message", "Customer updated successfully"),
                 "data": None
             }
+        #---------------------------- Ticket ----------------------------
         elif tool_name == "create_ticket":
         
             tool_args = tool_call.get("args", {})
@@ -382,15 +464,50 @@ User role: {role}
             }
         elif tool_name == "emp_my_tickets":
             tool_args = {
-                "emp_id": user["emp_id"]  # derived from token
+                "emp_id": user["emp_id"],  # derived from token
+                "token" : token
             }
 
             tickets = emp_my_tickets.invoke(tool_args)
 
+            if isinstance(tickets, dict) and tickets.get("detail"):
+                return {"message": tickets["detail"]}
+
+        # ---------- SECOND PASS (LLM FILTERING) ----------
+            filter_messages = [
+            SystemMessage(content="""
+        You are a CRM ticket filtering engine.
+
+        Filter the provided tickets strictly based on the user's request.
+
+        Return ONLY a JSON array.
+        Do NOT include explanations.
+        Output MUST start with [ and end with ].
+        """),
+            HumanMessage(
+                content=f"""
+            User request:
+            {payload.prompt}
+
+            Tickets:
+            {json.dumps(tickets)}
+            """
+                )
+            ]
+
+            filtered = llm.invoke(filter_messages)
+
+            filtered_json = extract_json(filtered.content)
+
             return {
                 "message": "Tickets fetched successfully",
-                "data": tickets
+                "data": filtered_json
             }
+
+            # return {
+            #     "message": "Tickets fetched successfully",
+            #     "data": tickets
+            # }
         elif tool_name == "customer_my_tickets":
             tool_args = {
                 "token": token  # identity resolved by backend
@@ -398,31 +515,151 @@ User role: {role}
 
             tickets = customer_my_tickets.invoke(tool_args)
 
+            if isinstance(tickets, dict) and tickets.get("detail"):
+                return {"message": tickets["detail"]}
+
+            # ---------- SECOND PASS (LLM FILTERING) ----------
+            filter_messages = [
+            SystemMessage(content="""
+        You are a CRM ticket filtering engine.
+
+        Filter the provided tickets strictly based on the user's request.
+
+        Return ONLY a JSON array.
+        Do NOT include explanations.
+        Output MUST start with [ and end with ].
+        """),
+            HumanMessage(
+                content=f"""
+            User request:
+            {payload.prompt}
+
+            Tickets:
+            {json.dumps(tickets)}
+            """
+                )
+            ]
+
+            filtered = llm.invoke(filter_messages)
+
+            filtered_json = extract_json(filtered.content)
+
             return {
                 "message": "Tickets fetched successfully",
-                "data": tickets
+                "data": filtered_json
             }
+            # return {
+            #     "message": "Tickets fetched successfully",
+            #     "data": tickets
+            # }
         elif tool_name == "fetch_all_tickets":
-            tool_args = {
-                "token": token
+            print("++++++++++++Token________________",token)
+            tool_argss = {
+                "token": token,
+                "user": user
+
             }
 
-            tickets = fetch_all_tickets.invoke(tool_args)
+            tickets = fetch_all_tickets.invoke(tool_argss)
+            print("Tickets --------------------------",tickets)
+            if isinstance(tickets, dict) and tickets.get('detail'):
+                return {"message": tickets['detail']}
+
+            # ---------- SECOND PASS (LLM FILTERING) ----------
+            filter_messages = [
+            SystemMessage(content="""
+        You are a CRM ticket filtering engine.
+
+        Filter the provided tickets strictly based on the user's request.
+
+        Return ONLY a JSON array.
+        Do NOT include explanations.
+        Output MUST start with [ and end with ].
+        """),
+            HumanMessage(
+                content=f"""
+            User request:
+            {payload.prompt}
+
+            Tickets:
+            {json.dumps(tickets)}
+            """
+                )
+            ]
+
+            print("**********filter_message ***************",filter_messages)
+
+
+            filtered = llm.invoke(filter_messages)
+            print("**** filtered *********",filtered)
+
+            filtered_json = extract_json(filtered.content)
+            print("*********** filtered_json **************",filtered_json)
+            print("returning")
+            return {
+                "message": "Tickets fetched successfully",
+                "data": filtered_json
+            }
+        elif tool_name == "fetch_tickets_by_customer":
+            if user["role"] not in ["ADMIN", "AGENT"]:
+                return {"message": "You are not authorized to view other customers' tickets"}
+
+            tool_args = tool_call.get("args", {})
+            tool_args["token"] = token
+            tool_args["user"] = user
+
+            tickets = fetch_tickets_by_customer.invoke(tool_args)
 
             if isinstance(tickets, dict) and tickets.get("detail"):
                 return {"message": tickets["detail"]}
 
+            # optional second-pass filtering (priority/status)
+            filter_messages = [
+                SystemMessage(content="""
+        You are a CRM ticket filtering engine.
+        Return ONLY a JSON array.
+        """),
+                HumanMessage(content=f"""
+        User request:
+        {payload.prompt}
+
+        Tickets:
+        {json.dumps(tickets)}
+        """)
+            ]
+
+            filtered = llm.invoke(filter_messages)
+            filtered_json = extract_json(filtered.content)
+
             return {
                 "message": "Tickets fetched successfully",
-                "data": tickets
+                "data": filtered_json
+            }
+        elif tool_name == "ticket_analysis_per_emp":
+            print("&&&&&&&&& Tool args",tool_call.get("args", {}))
+            tool_args = tool_call.get("args", {})
+            # tool_args = {
+            #     "emp_id": user["emp_id"],
+            #     "token": token
+            # }
+            tool_args["token"] = token
+
+            analysis = ticket_analysis_per_emp.invoke(tool_args)
+            print("^^^^^^^^^^^ analysis ",analysis)
+
+            # if isinstance(analysis, dict) and analysis.get("detail"):
+            #     return {"message": analysis["detail"]}
+            return {
+                "message": "Ticket analytics fetched successfully",
+                # "type": "analytics",
+                "data": analysis
             }
 
 
+        
 
 
 
-
-    # ✅ NORMAL CHAT
     return {
         "message": extract_text(ai_response.content) or "",
         "data": None

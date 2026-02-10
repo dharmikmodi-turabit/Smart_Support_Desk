@@ -299,6 +299,7 @@ def my_tickets(user=Depends(get_current_user), db=Depends(access_db)):
         (user["emp_id"],)
     )
     return cursor.fetchall()
+
 @ticket_router.get("/customer_my_tickets", tags=["Ticket"])
 def customer_my_tickets(user=Depends(customer_required), db=Depends(access_db)):
     cursor = db.cursor()
@@ -338,13 +339,6 @@ def profile(user=Depends(get_current_user), db=Depends(access_db)):
         "closed": closed
     }
 
-
-@ticket_router.post("/logout", tags=["Logout"])
-def logout(
-    credentials: HTTPAuthorizationCredentials = Depends(security)
-):
-    redis_client.delete(credentials.credentials)
-    return {"message": "Logged out successfully"}
 
 @ticket_router.get("/customer_ticket_messages/{ticket_id}", tags=["Ticket"])
 def get_ticket_messages(
