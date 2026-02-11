@@ -18,6 +18,7 @@ def get_current_user(credentials=Depends(security)):
 
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        print(payload)
         return payload
     except JWTError:
         raise HTTPException(

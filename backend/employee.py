@@ -135,7 +135,9 @@ def employee_login(data: Login, db=Depends(access_db)):
 
                 return {
                     "access_token": token,
-                    "token_type": "bearer"
+                    "token_type": "bearer",
+                    "emp_id": user["employee_id"],
+                    "role": user["employee_type"]
                 }
     except Exception as e:
         raise HTTPException(

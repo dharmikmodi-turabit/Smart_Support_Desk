@@ -186,11 +186,11 @@ def update_ticket(data : TicketUpdate,user = Depends(get_current_user),db = Depe
             with db.cursor() as cursor:
                 cursor.execute("select * from ticket where ticket_id = %s",(data.ticket_id,))
                 ticket = cursor.fetchone()
-                # print("------------------ticket--------------",ticket)
+                print("------------------ticket--------------",ticket)
                 if ticket:
                     cursor.execute("select * from employee where employee_id = %s",(user["emp_id"],))
                     e = cursor.fetchone()
-                    # print("------------------e--------------",e)
+                    print("------------------e--------------",e)
                     if e:
                         if e['employee_type']==3:
                             query = '''update ticket set 
@@ -208,6 +208,7 @@ def update_ticket(data : TicketUpdate,user = Depends(get_current_user),db = Depe
                                       data.reason if data.reason else ticket['reason'],
                                       data.ticket_status.value if data.ticket_status.value else ticket['ticket_status'],
                                       data.ticket_id)
+                                      
                         else:
                             query = '''update ticket set 
                             issue_type = %s,
@@ -218,10 +219,11 @@ def update_ticket(data : TicketUpdate,user = Depends(get_current_user),db = Depe
                             where ticket_id = %s'''
                             values = (data.issue_type if data.issue_type else ticket['issue_type'],
                                       data.issue_description if data.issue_description else ticket['issue_description'],
-                                      data.priority.value if data.priority.value else ticket['priority'],
+                                      data.priority.value if data.priority else ticket['priority'],
                                       data.reason if data.reason else ticket['reason'],
                                       data.ticket_status.value if data.ticket_status.value else ticket['ticket_status'],
                                       data.ticket_id)
+                            print(values)
                         cursor.execute(query,values)
                         db.commit()
                         # 3️⃣ Update HubSpot ONLY if synced
@@ -253,6 +255,7 @@ def update_ticket(data : TicketUpdate,user = Depends(get_current_user),db = Depe
                     }
                 )
     except Exception as e:
+        print("___________________________",e)
         raise HTTPException(
         status_code=500,
         detail=str(e)
@@ -308,6 +311,29 @@ def customer_my_tickets(user=Depends(customer_required), db=Depends(access_db)):
         (user["emp_id"],)
     )
     return cursor.fetchall()
+
+class FetchTicketsRequest(BaseModel):
+    customer_email: str
+
+@ticket_router.post("/fetch_tickets_by_customer", tags=["Ticket"])
+def fetch_tickets_by_customer(data:FetchTicketsRequest,user=Depends(get_current_user), db=Depends(access_db)):
+    cursor = db.cursor()
+    cursor.execute("select customer_id from customer where customer_email = %s",(data.customer_email,))
+
+    customer = cursor.fetchone()
+    print(customer)
+    
+    if not customer:
+        return {"message": "Customer not found"}
+
+    customer_id = customer['customer_id']   # VERY IMPORTANT
+    print(customer_id)
+    cursor.execute(
+        "select * from ticket where customer_id=%s",
+        (customer_id,)
+    )
+    return cursor.fetchall()
+
 
 
 @ticket_router.get("/profile", tags=["Ticket"])

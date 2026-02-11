@@ -19,6 +19,7 @@ HUBSPOT_TOKEN = repr(os.getenv("HUBSPOT_TOKEN"))
 
 app = FastAPI(title="Smart Support Desk")
 
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

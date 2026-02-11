@@ -99,6 +99,61 @@ def create_ticket(
             "details": e.errors()
         }
 
+class UpdateTicketSchema(BaseModel):
+    ticket_id: int
+    issue_type: Optional[str] = None
+    issue_description: Optional[str] = None
+    priority: Optional[str] = None
+    reason: Optional[str] = None
+    ticket_status: Optional[str] = None
+    token: Optional[str] = None
+
+@tool("update_ticket", args_schema=UpdateTicketSchema)
+def update_ticket(
+    ticket_id: int,
+    issue_type: Optional[str] = None,
+    issue_description: Optional[str] = None,
+    priority: Optional[str] = None,
+    reason: Optional[str] = None,
+    ticket_status: Optional[str] = None,
+    token: Optional[str] = None,
+):
+    """
+    Update an existing ticket.
+
+    Allowed for ADMIN and AGENT roles.
+    Can update issue type, description, priority, reason, or ticket status.
+    """
+
+    try:
+        payload = {
+            "ticket_id": ticket_id,
+            "issue_type": issue_type,
+            "issue_description": issue_description,
+            "priority": priority,
+            "reason": reason,
+            "ticket_status": ticket_status,
+        }
+
+        # Remove None values
+        payload = {k: v for k, v in payload.items() if v is not None}
+
+        response = requests.put(
+            f"{API_BASE_URL}/update_ticket",
+            headers={"Authorization": f"Bearer {token}"},
+            json=payload,
+        )
+
+        return response.json()
+
+    except Exception as e:
+        return {"error": str(e)}
+
+
+
+
+
+
 class EmpMyTickets(BaseModel):
     token: str   # backend injected
 
@@ -188,12 +243,42 @@ def fetch_all_tickets(token: str=None) -> list[dict]:
     except Exception as e:
         return {"detail": str(e)}
     
-@tool
-def fetch_tickets_by_customer(customer_email: str, token: str, user: dict):
+class Fetch_tickets_by_customer(BaseModel):
+    customer_email : str
+    token : str | None = None
+
+@tool("fetch_tickets_by_customer",args_schema=Fetch_tickets_by_customer)
+def fetch_tickets_by_customer(customer_email: str, token: str):
     """
     Fetch tickets for a specific customer.
     Allowed only for ADMIN or AGENT.
+    Retrieve all tickets created by the customer whose email is customer_email.
+
+    This tool calls the `/fetch_tickets_by_customer` API endpoint. The customer
+    identity is automatically determined on the backend using the provided
+    email, so no customer ID needs to be supplied explicitly.
+
+    Args:
+        token (str): Authorization JWT token injected by the backend.
+        customer_email (str) : Customer email to identify customer.
+
+    Returns:
+        dict: JSON response containing the list of tickets associated
+        with email of the customer, or an error message if the request fails.
     """
+    try:
+        print()
+        response = requests.post(
+            f"{API_BASE_URL}/fetch_tickets_by_customer",
+            headers={"Authorization": f"Bearer {token}"},
+            json = {'customer_email':customer_email}
+        )
+        return response.json()
+
+    except Exception as e:
+        return {"error": str(e)}
+
+
 
 
 @tool
