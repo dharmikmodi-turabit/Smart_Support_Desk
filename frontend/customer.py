@@ -90,13 +90,6 @@ def customer_add():
 
     address = st.text_area("Address")
 
-    # # ---- VALIDATION ----
-    # if email != "Select Email":
-    #     st.error("❌ Email already exists")
-
-    # if mobile != "Select Mobile":
-    #     st.error("❌ Mobile already exists")
-
     # ---- FORM SUBMIT ----
     with st.form("customer_registration_form"):
         submitted = st.form_submit_button("Register")

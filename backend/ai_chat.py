@@ -1069,6 +1069,7 @@ Your goal is SAFE, PREDICTABLE, and CORRECT CRM automation.
                 tool_args["token"] = token
 
                 analysis = ticket_analysis_per_emp.invoke(tool_args)
+                print(analysis)
 
 
                 return {
