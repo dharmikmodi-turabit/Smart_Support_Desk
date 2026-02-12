@@ -6,7 +6,7 @@ from hubspot_tickets import hubspot_ticket_router
 from employee import employee_router
 from customer import customer_router
 from ticket import ticket_router
-from ai_chat import ai_crm_router
+from ai_chat import ai_chat_router
 from dependencies import HTTPAuthorizationCredentials, security
 from redis_client import redis_client
 from ai_chat import ai_chat_router
