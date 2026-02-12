@@ -8,24 +8,34 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 def create_access_token(data: dict):
     """
-    Create a JWT access token with an expiration time.
+    Generate a signed JWT access token with expiration.
 
-    This function generates a JSON Web Token (JWT) containing the provided
-    payload (`data`) and an expiration timestamp. The token is signed using
-    the configured secret key and algorithm.
+    This function creates a JSON Web Token (JWT) by:
+        1. Copying the provided payload data.
+        2. Adding an expiration claim ("exp") based on
+           ACCESS_TOKEN_EXPIRE_MINUTES.
+        3. Encoding the payload using the configured SECRET_KEY
+           and ALGORITHM.
 
     Args:
-    - data (dict): The payload to encode in the JWT. Typically includes
-      user identifiers, roles, or other claims. Sensitive information
-      (like passwords) should not be included.
+        data (dict):
+            Payload data to embed inside the JWT.
+            Typically includes user identification fields
+            such as user_id, email, role, or emp_id.
 
     Returns:
-    - str: Encoded JWT as a string.
+        str:
+            Encoded JWT access token.
 
     Raises:
-    - RuntimeError: If an error occurs during token creation.
-    """
+        HTTPException:
+            500 Internal Server Error if token encoding fails.
 
+    Notes:
+        - Expiration time is calculated using UTC.
+        - The "exp" claim is mandatory for token validation.
+        - SECRET_KEY and ALGORITHM must be securely configured.
+    """
     try:
         to_encode = data.copy()
         expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)

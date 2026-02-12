@@ -40,9 +40,10 @@ def login():
 
         if res:
             st.session_state["token"] = res["access_token"]
+            st.session_state["user_id"] = res["emp_id"]
+            st.session_state["role"] = res["role"]
             st.success("Login successful")
             st.rerun()
-
 
 def customer_login():
     """

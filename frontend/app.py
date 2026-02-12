@@ -6,6 +6,7 @@ from customer import customer_view, customer_add, customer_update
 from dashboard.employee import employee_dashboard
 from dashboard.customer import customer_dashboard
 from ticket import ticket_update, ticket_view, ticket_create, customer_ticket_view
+from ai_chat_page import ai_chatbot_page
 
 # ---------------- CONFIG ----------------
 st.set_page_config(
@@ -98,21 +99,25 @@ else:
             ("👨‍💼 Employees", "employees"),
             ("👥 Customers", "customers"),
             ("🎫 Tickets", "tickets"),
+            ("🤖 Chatbot", "chatbot"),
             ("🚪 Logout", "logout"),
         ],
         "Agent": [
             ("📊 Dashboard", "dashboard"),
             ("👥 Customers", "customers"),
             ("🎫 Tickets", "tickets"),
+            ("🤖 Chatbot", "chatbot"),
             ("🚪 Logout", "logout"),
         ],
         "Service Person": [
             ("📊 Dashboard", "dashboard"),
             ("🎫 Tickets", "tickets"),
+            ("🤖 Chatbot", "chatbot"),
             ("🚪 Logout", "logout"),
         ],
         "Customer": [
             ("📊 Dashboard", "dashboard"),
+            ("🤖 Chatbot", "chatbot"),
             ("🚪 Logout", "logout"),
         ],
     }
@@ -188,6 +193,8 @@ else:
         else:
             ticket_view()
 
+    elif menu == "chatbot":
+        ai_chatbot_page()
 
     elif menu == "create_ticket":
         ticket_create()

@@ -1,7 +1,7 @@
 import requests
 import streamlit as st
 
-BASE_URL = "http://192.168.1.32:8000"
+BASE_URL = "http://127.0.0.1:8000"
 
 def logout_user(message="Session expired. Please login again."):
     """
@@ -77,9 +77,8 @@ def api_call(method, endpoint, token=None, json=None, params=None):
             headers=headers,
             json=json,
             params=params,
-            timeout=5
+            timeout=100
         )
-
         # 🔥 HANDLE TOKEN EXPIRY
         if res.status_code == 401:
             logout_user(res.json().get("detail", "Invalid token"))
@@ -90,7 +89,7 @@ def api_call(method, endpoint, token=None, json=None, params=None):
 
         return res.json()
 
-    except requests.exceptions.RequestException:
-        st.error("Backend server not reachable")
+    except requests.exceptions.RequestException as e:
+        st.error(f"Backend server not reachable {e}")
         return None
     
