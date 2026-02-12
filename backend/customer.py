@@ -65,7 +65,7 @@ def fetch_all_customers(user=Depends(admin_agent_required),db = Depends(access_d
         status_code=500,
         detail=str(e)
     )
-    
+ 
 def sync_single_customer(customer_id: int):
     """
     Synchronize a single customer record with HubSpot.
@@ -321,7 +321,7 @@ def update_customer(data : Update_customer,user=Depends(admin_agent_required),db
     )
 
 @customer_router.delete("/remove_customer", tags=["Customer"])
-def remove_customer(data = DeleteUser,user=Depends(admin_required),db = Depends(access_db)):
+def remove_customer(data : DeleteUser,user=Depends(admin_required),db = Depends(access_db)):
     """
     Delete a customer record from the system.
 
@@ -376,7 +376,8 @@ def remove_customer(data = DeleteUser,user=Depends(admin_required),db = Depends(
 
 
 @customer_router.post("/sync-customer/{customer_id}", tags=["Customer"])
-def sync_customer(customer_id: int):
+def sync_customer(customer_id: int,
+    user=Depends(admin_agent_required)):
     """
     Synchronize a customer with HubSpot by customer ID.
 
@@ -431,76 +432,24 @@ def get_customer_from_hubspot(
       access or HubSpot communication.
     """
 
-    cursor = db.cursor()
-    cursor.execute(
-        "SELECT hubspot_contact_id FROM customer WHERE customer_id=%s",
-        (customer_id,)
-    )
-    customer = cursor.fetchone()
+    try:
+        cursor = db.cursor()
+        cursor.execute(
+            "SELECT hubspot_contact_id FROM customer WHERE customer_id=%s",
+            (customer_id,)
+        )
+        customer = cursor.fetchone()
 
-    if not customer or not customer["hubspot_contact_id"]:
-        raise HTTPException(404, "Customer not synced to HubSpot")
+        if not customer or not customer["hubspot_contact_id"]:
+            raise HTTPException(404, "Customer not synced to HubSpot")
 
-    return fetch_contact_by_id(customer["hubspot_contact_id"])
-
-
-@customer_router.get("/hubspot/customer_email/{customer_email}", tags=["Customer"])
-def get_customer_from_hubspot_by_email(
-    customer_email: str,
-    user=Depends(admin_agent_required),
-    db=Depends(access_db)
-):
-    """
-    Retrieve a synced HubSpot contact using customer email.
-
-    This endpoint:
-        1. Validates that the authenticated user has ADMIN or AGENT privileges.
-        2. Queries the local database for the corresponding HubSpot contact ID.
-        3. Fetches the full contact details from HubSpot using that ID.
-
-    Path Parameters:
-        customer_email (str):
-            Email address of the customer stored in the local system.
-
-    Dependencies:
-        user:
-            Enforces ADMIN or AGENT role via `admin_agent_required`.
-        db:
-            Database connection injected via `access_db`.
-
-    Returns:
-        dict:
-            HubSpot contact object retrieved from HubSpot API.
-
-    Raises:
-        HTTPException:
-            404 – If the customer does not exist locally or
-                  is not synced with HubSpot (missing hubspot_contact_id).
-            500 – If external HubSpot fetch fails (propagated from helper).
-
-    Security:
-        - Access restricted to ADMIN and AGENT roles only.
-        - Customer email is used strictly as a lookup key in the local database.
-        - HubSpot contact ID must exist before external API call.
-
-    Notes:
-        - This endpoint assumes prior synchronization between
-          local customers and HubSpot.
-        - No direct HubSpot search by email is performed here;
-          only stored HubSpot contact IDs are used.
-    """
-    cursor = db.cursor()
-    cursor.execute(
-        "SELECT hubspot_contact_id FROM customer WHERE customer_email=%s",
-        (customer_email,)
-    )
-    customer = cursor.fetchone()
-
-    if not customer or not customer["hubspot_contact_id"]:
-        raise HTTPException(404, "Customer not synced to HubSpot")
-
-    return fetch_contact_by_id(customer["hubspot_contact_id"])
-
+        return fetch_contact_by_id(customer["hubspot_contact_id"])
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+        status_code=500,
+        detail=str(e))
 
 @customer_router.get("/hubspot/customer-delete/{customer_id}", tags=["Customer"])
 def delete_customer_from_hubspot(customer_id:int,db=Depends(access_db)):

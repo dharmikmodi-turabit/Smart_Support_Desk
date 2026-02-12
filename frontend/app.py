@@ -1,16 +1,12 @@
 import streamlit as st
 import jwt
-
 from auth import login, logout, customer_login
-from employee import employee_add, service_person_tickets, employee_view, employee_update
+from employee import employee_add, service_person_tickets, employee_view, employee_update, employee_chat_dashboard
 from customer import customer_view, customer_add, customer_update
 from dashboard.employee import employee_dashboard
 from dashboard.customer import customer_dashboard
 from ticket import ticket_update, ticket_view, ticket_create, customer_ticket_view
-from employee import employee_chat_dashboard   # 👈 ADD THIS IMPORT
 from ai_chat_page import ai_chatbot_page
-
-
 
 # ---------------- CONFIG ----------------
 st.set_page_config(
@@ -20,7 +16,6 @@ st.set_page_config(
 )
 
 st.title("🎫 Smart Support Desk")
-
 
 # ---------------- HELPERS ----------------
 def get_user(token):
@@ -129,15 +124,12 @@ else:
 
     menu_labels = [item[0] for item in MENU[role]]
     menu_keys = [item[1] for item in MENU[role]]
-
-    if "menu" not in st.session_state:
-        st.session_state.menu = menu_labels[0]
-
+    
     selected = st.sidebar.radio(
-            "Menu",
-            menu_labels,
-            key="menu"
-        )
+        "Menu",
+        menu_labels,
+        key="menu"
+    )
 
     menu = dict(zip(menu_labels, menu_keys))[selected]
 

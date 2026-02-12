@@ -1,12 +1,10 @@
 from fastapi import status,Depends, HTTPException, APIRouter
 from database import access_db
-from dependencies import get_current_user,admin_agent_required, HTTPAuthorizationCredentials, security, customer_required, admin_agent_customer_required
-from fastapi.security import HTTPAuthorizationCredentials
+from dependencies import get_current_user,admin_agent_required, customer_required, admin_agent_customer_required
 from pydantic import BaseModel
 from typing import Optional
 from enum import Enum
 from datetime import datetime
-from redis_client import redis_client
 from hubspot_tickets import hubspot_create_ticket, hubspot_close_ticket, hubspot_update_ticket
 from hubspot_contacts import get_contact_id_by_email
 
@@ -41,7 +39,7 @@ class TicketUpdate(BaseModel):
     ticket_status : Optional[TicketStatus] = None
 
 @ticket_router.get("/all_tickets", tags=["Ticket"])
-def fetch_all_tickets(user=Depends(get_current_user),db = Depends(access_db)):
+def fetch_all_tickets(user=Depends(get_current_user), db=Depends(access_db)):
     """
     Fetch all tickets from the system.
 
@@ -177,7 +175,7 @@ def ticket_registration(data:TicketRegister,user=Depends(admin_agent_required),d
     )
 
 @ticket_router.post("/ticket_registration_gform", tags=["Ticket"])
-def ticket_registration_gform(data:TicketRegister,db = Depends(access_db)):
+def ticket_registration_gform(data: TicketRegister, db=Depends(access_db)):
     """
     Register a new ticket submitted via Google Form or external source.
 
@@ -209,43 +207,53 @@ def ticket_registration_gform(data:TicketRegister,db = Depends(access_db)):
     try:
         with db:
             with db.cursor() as cursor:
-                customer = cursor.execute("select customer_id from customer where customer_email = %s",(data.customer_email,))
+                customer = cursor.execute(
+                    "select customer_id from customer where customer_email = %s",
+                    (data.customer_email,)
+                )
                 if customer:
                     customer = cursor.fetchone()
                     query = '''insert into ticket(
-                    issue_title,
-                    issue_type,
-                    issue_description,
-                    priority,
-                    generate_datetime,
-                    ticket_status,
-                    creater_emp_id,
-                    customer_id
+                        issue_title,
+                        issue_type,
+                        issue_description,
+                        priority,
+                        generate_datetime,
+                        ticket_status,
+                        creater_emp_id,
+                        customer_id
                     ) values (%s,%s,%s,%s,%s,%s,%s,%s)'''
-                    values = (data.issue_title,
+                    values = (
+                        data.issue_title,
                         data.issue_type,
                         data.issue_description,
                         data.priority.value,
                         data.generate_datetime,
                         "Open",
                         1,
-                        customer["customer_id"])
-                    cursor.execute(query,values)
+                        customer["customer_id"]
+                    )
+                    cursor.execute(query, values)
                     db.commit()
-                    return {"status_code":status.HTTP_201_CREATED, "message":"Ticket generated"}
+                    return {
+                        "status_code": status.HTTP_201_CREATED,
+                        "message": "Ticket generated"
+                    }
+
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Customer not found",
-                ) 
+                )
     except Exception as e:
         raise HTTPException(
-        status_code=500,
-        detail=str(e)
-    )
+            status_code=500,
+            detail=str(e)
+        )
+
 
 
 @ticket_router.put("/update_ticket", tags=["Ticket"])
-def update_ticket(data : TicketUpdate,user = Depends(get_current_user),db = Depends(access_db)):
+def update_ticket(data: TicketUpdate, user=Depends(get_current_user), db=Depends(access_db)):
     """
     Update an existing ticket and synchronize changes with HubSpot if applicable.
 
@@ -287,46 +295,57 @@ def update_ticket(data : TicketUpdate,user = Depends(get_current_user),db = Depe
     try:
         with db:
             with db.cursor() as cursor:
-                cursor.execute("select * from ticket where ticket_id = %s",(data.ticket_id,))
+                cursor.execute(
+                    "select * from ticket where ticket_id = %s",
+                    (data.ticket_id,)
+                )
                 ticket = cursor.fetchone()
                 if ticket:
-                    cursor.execute("select * from employee where employee_id = %s",(user["emp_id"],))
+                    cursor.execute(
+                        "select * from employee where employee_id = %s",
+                        (user["emp_id"],)
+                    )
                     e = cursor.fetchone()
                     if e:
-                        if e['employee_type']==3:
+                        if e['employee_type'] == 3:
                             query = '''update ticket set 
-                            service_person_emp_id = %s,
-                            issue_type = %s,
-                            issue_description = %s,
-                            priority = %s,
-                            reason = %s,
-                            ticket_status = %s
-                            where ticket_id = %s'''
-                            values = (user["emp_id"],
-                                      data.issue_type if data.issue_type else ticket['issue_type'],
-                                      data.issue_description if data.issue_description else ticket['issue_description'],
-                                      data.priority.value if data.priority.value else ticket['priority'],
-                                      data.reason if data.reason else ticket['reason'],
-                                      data.ticket_status.value if data.ticket_status.value else ticket['ticket_status'],
-                                      data.ticket_id)
-                                      
+                                service_person_emp_id = %s,
+                                issue_type = %s,
+                                issue_description = %s,
+                                priority = %s,
+                                reason = %s,
+                                ticket_status = %s
+                                where ticket_id = %s'''
+                            values = (
+                                user["emp_id"],
+                                data.issue_type or ticket['issue_type'],
+                                data.issue_description or ticket['issue_description'],
+                                data.priority.value if data.priority else ticket['priority'],
+                                data.reason or ticket['reason'],
+                                data.ticket_status.value if data.ticket_status else ticket['ticket_status'],
+                                data.ticket_id
+                            )
                         else:
                             query = '''update ticket set 
-                            issue_type = %s,
-                            issue_description = %s,
-                            priority = %s,
-                            reason = %s,
-                            ticket_status = %s
-                            where ticket_id = %s'''
-                            values = (data.issue_type if data.issue_type else ticket['issue_type'],
-                                      data.issue_description if data.issue_description else ticket['issue_description'],
-                                      data.priority.value if data.priority else ticket['priority'],
-                                      data.reason if data.reason else ticket['reason'],
-                                      data.ticket_status.value if data.ticket_status.value else ticket['ticket_status'],
-                                      data.ticket_id)
-                        cursor.execute(query,values)
+                                issue_type = %s,
+                                issue_description = %s,
+                                priority = %s,
+                                reason = %s,
+                                ticket_status = %s
+                                where ticket_id = %s'''
+                            values = (
+                                data.issue_type or ticket['issue_type'],
+                                data.issue_description or ticket['issue_description'],
+                                data.priority.value if data.priority else ticket['priority'],
+                                data.reason or ticket['reason'],
+                                data.ticket_status.value if data.ticket_status else ticket['ticket_status'],
+                                data.ticket_id
+                            )
+
+                        cursor.execute(query, values)
                         db.commit()
-                        # 3️⃣ Update HubSpot ONLY if synced
+
+                        # Sync with HubSpot if ticket is linked
                         if ticket["hubspot_ticket_id"]:
                             if data.ticket_status and data.ticket_status.value == "Close":
                                 hubspot_close_ticket(ticket["hubspot_ticket_id"])
@@ -341,27 +360,24 @@ def update_ticket(data : TicketUpdate,user = Depends(get_current_user),db = Depe
                             "message": "Ticket updated & synced"
                         }
 
-                        # return { 'status_code': status.HTTP_202_ACCEPTED, 'Message':"Ticket Updated!"}
                     raise HTTPException(
                         status_code=status.HTTP_404_NOT_FOUND,
-                        detail={
-                            "message": "Employee not exist"
-                        }
+                        detail={"message": "Employee not exist"}
                     )
+
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail={
-                        "message": "Ticket not exist"
-                    }
+                    detail={"message": "Ticket not exist"}
                 )
     except Exception as e:
         raise HTTPException(
-        status_code=500,
-        detail=str(e)
-    )
+            status_code=500,
+            detail=str(e)
+        )
+
 
 @ticket_router.post("/ticket_analysis_per_emp", tags=["Ticket"])
-def ticket_analysis_per_emp(emp_id:int,db = Depends(access_db)):
+def ticket_analysis_per_emp(emp_id: int, db=Depends(access_db)):
     """
     Get ticket statistics for a specific employee.
 
@@ -398,33 +414,60 @@ def ticket_analysis_per_emp(emp_id:int,db = Depends(access_db)):
     try:
         with db:
             with db.cursor() as cursor:
-                cursor.execute("select type_name from employee_type where employee_type_id =(select employee_type from employee where employee_id = %s)",(emp_id,))
+                cursor.execute(
+                    """
+                    select type_name
+                    from employee_type
+                    where employee_type_id = (
+                        select employee_type
+                        from employee
+                        where employee_id = %s
+                    )
+                    """,
+                    (emp_id,)
+                )
                 employee_type = cursor.fetchone()['type_name']
+
                 if employee_type != "Admin":
-                    total_ticket_count = cursor.execute("select * from ticket where creater_emp_id = %s or service_person_emp_id = %s",(emp_id,emp_id))
+                    total_ticket_count = cursor.execute(
+                        "select * from ticket where creater_emp_id = %s or service_person_emp_id = %s",
+                        (emp_id, emp_id)
+                    )
                     d = cursor.fetchall()
                 else:
                     total_ticket_count = cursor.execute("select * from ticket")
                     d = cursor.fetchall()
+
                 if d:
-                    Opened_ticket_count = cursor.execute("select * from ticket where ticket_status = %s","Open")
-                    in_progress_ticket_count = cursor.execute("select * from ticket where ticket_status = %s","In_Progress")
-                    Closed_ticket_count = cursor.execute("select * from ticket where ticket_status = %s","Close")
+                    Opened_ticket_count = cursor.execute(
+                        "select * from ticket where ticket_status = %s",
+                        "Open"
+                    )
+                    in_progress_ticket_count = cursor.execute(
+                        "select * from ticket where ticket_status = %s",
+                        "In_Progress"
+                    )
+                    Closed_ticket_count = cursor.execute(
+                        "select * from ticket where ticket_status = %s",
+                        "Close"
+                    )
+
                     return {
-                        "total_ticket_count":total_ticket_count,
-                        "Opened_ticket_count":Opened_ticket_count,
-                        "in_progress_ticket_count":in_progress_ticket_count,
-                        "Closed_ticket_count":Closed_ticket_count
+                        "total_ticket_count": total_ticket_count,
+                        "Opened_ticket_count": Opened_ticket_count,
+                        "in_progress_ticket_count": in_progress_ticket_count,
+                        "Closed_ticket_count": Closed_ticket_count
                     }
+
                 raise HTTPException(
                     status_code=400,
                     detail="Ticket not found"
                 )
     except Exception as e:
         raise HTTPException(
-        status_code=500,
-        detail=str(e)
-    )
+            status_code=500,
+            detail=str(e)
+        )
 
 @ticket_router.get("/my_tickets", tags=["Ticket"])
 def my_tickets(user=Depends(get_current_user), db=Depends(access_db)):

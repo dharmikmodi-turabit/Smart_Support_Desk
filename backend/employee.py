@@ -63,17 +63,12 @@ def employee_registration(
     creator_role = user["role"]
 
     # AGENT RESTRICTION
-    if creator_role == "Agent" and data.type != UserRole.service_person:
+    if user["role"] == "Agent" and data.type != UserRole.service_person:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Agent can only register Service Person"
         )
 
-    # ADMIN CAN REGISTER ANY
-    if creator_role == "Admin":
-        pass
-
-    # SERVICE PERSON BLOCKED ALREADY BY DEPENDENCY
 
     # ---- EXISTING LOGIC ----
     with db:

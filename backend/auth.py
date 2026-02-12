@@ -42,7 +42,4 @@ def create_access_token(data: dict):
         to_encode.update({"exp": expire})
         return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     except Exception as e:
-        raise HTTPException(
-        status_code=500,
-        detail=str(e)
-    )
+        raise RuntimeError(f"Failed to create access token: {e}")
