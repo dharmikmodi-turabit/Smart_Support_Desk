@@ -261,11 +261,9 @@ llm = ChatGroq(
     # model="moonshotai/kimi-k2-instruct-0905",
     temperature=0,
     max_tokens=None,
-    # reasoning_format="parsed",
     timeout=None,
     max_retries=2,
     api_key=GROK_API_KEY
-    # other params...
 )
 ##---------------Gemini API Config---------------
 # llm = ChatGoogleGenerativeAI(
@@ -511,7 +509,6 @@ def chat_with_ai(
         # 🔐 Auth already validated by dependency
         role = user.get("role", "unknown")
         auth_header = request.headers.get("authorization")
-        # token = None
         messages = [
             SystemMessage(
                 content=f"""
@@ -810,10 +807,6 @@ Your goal is SAFE, PREDICTABLE, and CORRECT CRM automation.
         if getattr(ai_response, "tool_calls", None):
             tool_call = ai_response.tool_calls[0]
             tool_name = tool_call.get("name")
-            # tool_args = tool_call.get("args")
-
-            # # Inject token
-            # tool_args["token"] = request.token
 
             #---------------------------- Customer ----------------------------
             if tool_name == "fetch_all_customers":
@@ -955,10 +948,6 @@ Your goal is SAFE, PREDICTABLE, and CORRECT CRM automation.
                     "data": filtered_json
                 }
 
-                # return {
-                #     "message": "Tickets fetched successfully",
-                #     "data": tickets
-                # }
             elif tool_name == "customer_my_tickets":
                 tool_args = {
                     "token": token  # identity resolved by backend
@@ -999,10 +988,7 @@ Your goal is SAFE, PREDICTABLE, and CORRECT CRM automation.
                     "message": "Tickets fetched successfully",
                     "data": filtered_json
                 }
-                # return {
-                #     "message": "Tickets fetched successfully",
-                #     "data": tickets
-                # }
+
             elif tool_name == "fetch_all_tickets":
                 tool_argss = {
                     "token": token,
@@ -1039,17 +1025,12 @@ Your goal is SAFE, PREDICTABLE, and CORRECT CRM automation.
 
                 filtered = llm.invoke(filter_messages)
 
-                # filtered_text = extract_text(filtered.content)
-
-                # filtered_json = extract_json(filtered_text)
                 filtered_json = extract_json(filtered.content)
                 return {
                     "message": "Tickets fetched successfully",
                     "data": filtered_json
                 }
             elif tool_name == "fetch_tickets_by_customer":
-                # if user["role"] not in ["ADMIN", "AGENT"]:
-                #     return {"message": "You are not authorized to view other customers' tickets"}
 
                 tool_args = tool_call.get("args", {})
                 tool_args["token"] = token
@@ -1084,19 +1065,14 @@ Your goal is SAFE, PREDICTABLE, and CORRECT CRM automation.
                 }
             elif tool_name == "ticket_analysis_per_emp":
                 tool_args = tool_call.get("args", {})
-                # tool_args = {
-                #     "emp_id": user["emp_id"],
-                #     "token": token
-                # }
+
                 tool_args["token"] = token
 
                 analysis = ticket_analysis_per_emp.invoke(tool_args)
 
-                # if isinstance(analysis, dict) and analysis.get("detail"):
-                #     return {"message": analysis["detail"]}
+
                 return {
                     "message": "Ticket analytics fetched successfully",
-                    # "type": "analytics",
                     "data": analysis
                 }
             elif tool_name == "update_ticket":
@@ -1124,9 +1100,6 @@ Your goal is SAFE, PREDICTABLE, and CORRECT CRM automation.
                     "message": result.get("message", "Ticket updated successfully"),
                     "data": None
                 }
-
-
-
 
 
         return {

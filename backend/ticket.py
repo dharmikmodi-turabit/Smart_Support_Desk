@@ -31,7 +31,6 @@ class TicketRegister(BaseModel):
 
 class TicketUpdate(BaseModel):
     ticket_id : int
-    # service_person_emp_id : int
     issue_type : Optional[str] = None 
     issue_description : Optional[str] = None 
     priority : Optional[TicketPriority] = None 
