@@ -2,11 +2,11 @@ from fastapi import FastAPI, Depends
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
 import os
-from hubspot_ticket_router import hubspot_ticket_router
+from hubspot_tickets import hubspot_ticket_router
 from employee import employee_router
 from customer import customer_router
 from ticket import ticket_router
-# from ai_crm import ai_crm_router
+from ai_chat import ai_crm_router
 from dependencies import HTTPAuthorizationCredentials, security
 from redis_client import redis_client
 from ai_chat import ai_chat_router
@@ -28,7 +28,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# app.include_router(ai_crm_router)
+app.include_router(ai_crm_router)
 app.include_router(ai_chat_router)
 app.include_router(employee_router)
 app.include_router(customer_router)
@@ -39,5 +39,21 @@ app.include_router(hubspot_ticket_router)
 def logout(
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
+    """
+    Log out the current user by deleting their session token from Redis.
+
+    This endpoint invalidates the user's JWT access token, effectively
+    logging them out and preventing further use of the token.
+
+    Args:
+    - credentials (HTTPAuthorizationCredentials, Depends): Extracted JWT token from the Authorization header.
+
+    Returns:
+    - dict: Confirmation message indicating the user has been logged out.
+
+    Raises:
+    - No explicit exceptions; if the token does not exist in Redis, the operation is idempotent.
+    """
+
     redis_client.delete(credentials.credentials)
     return {"message": "Logged out successfully"}

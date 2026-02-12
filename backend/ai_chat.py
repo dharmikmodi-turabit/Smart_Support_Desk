@@ -13,7 +13,6 @@ from langchain_groq import ChatGroq
 from database import chat_sessions, chat_messages
 from bson import ObjectId
 from datetime import datetime
-# from ai_engine import llm_with_tools, extract_text/
 
 ai_chat_router = APIRouter(prefix="/ai", tags=["AI Chatbot"])
 
@@ -34,22 +33,109 @@ def create_session(
     payload: CreateSession,
     user=Depends(get_current_user)
 ):
+    """
+    Create a new chat session for the authenticated user.
+
+    This endpoint:
+        1. Extracts user identity and role from the JWT.
+        2. Generates a session title using the current UTC timestamp.
+        3. Stores session metadata in the `chat_sessions` collection.
+        4. Returns the newly created session identifier.
+
+    Request Body:
+        CreateSession:
+            (Currently not used directly in logic, but reserved
+             for future extensibility such as custom titles.)
+
+    Dependencies:
+        user:
+            Authenticated user injected via `get_current_user`.
+            Must contain:
+                - "emp_id" (used as user_id)
+                - "role"   (stored for role-aware session context)
+
+    Stored Fields:
+        - user_id (from JWT: emp_id)
+        - role (from JWT)
+        - title (UTC timestamp string: YYYY-MM-DD HH:MM)
+        - created_at (UTC datetime)
+        - updated_at (UTC datetime)
+
+    Returns:
+        dict:
+            {
+                "session_id": str,   # MongoDB ObjectId as string
+                "title": str         # Auto-generated session title
+            }
+
+    Behavior:
+        - Title is auto-generated based on UTC time.
+        - created_at and updated_at are initialized to the same value.
+        - Session is strictly bound to the authenticated user.
+
+    Security:
+        - User identity is derived exclusively from JWT.
+        - Client cannot override user_id or role.
+
+    Notes:
+        - Suitable for initializing a new conversational context.
+        - Session title can later be updated if custom naming is required.
+    """
 
     session = {
         "user_id": user["emp_id"],  # from JWT
         "role": user["role"],  # from JWT
-        "title": payload.title,
+        "title": datetime.utcnow().strftime("%Y-%m-%d %H:%M"),
         "created_at": datetime.utcnow(),
         "updated_at": datetime.utcnow()
     }
 
     result = chat_sessions.insert_one(session)
 
-    return {"session_id": str(result.inserted_id)}
+    return {
+        "session_id": str(result.inserted_id),
+        "title": session["title"]
+    }
 
 
 @ai_chat_router.get("/sessions")
 def get_sessions(user=Depends(get_current_user)):
+    """
+    Retrieve all chat sessions for the authenticated user.
+
+    This endpoint:
+        1. Extracts the authenticated user's emp_id.
+        2. Queries the `chat_sessions` collection for matching user_id.
+        3. Converts MongoDB ObjectId fields to string format
+           for JSON serialization compatibility.
+
+    Dependencies:
+        user:
+            Authenticated user injected via `get_current_user`.
+            Must contain "emp_id" used as the session owner identifier.
+
+    Returns:
+        list[dict]:
+            A list of chat session documents associated with the user.
+            Each session includes:
+                - _id (str)
+                - user_id
+                - session metadata (if stored)
+                - any additional session attributes
+
+    Behavior:
+        - Filters sessions strictly by user["emp_id"].
+        - Converts `_id` from ObjectId to string.
+        - Returns an empty list if no sessions exist.
+
+    Security:
+        - Sessions are user-scoped.
+        - Only sessions belonging to the authenticated user are returned.
+
+    Notes:
+        - Assumes chat_sessions collection stores user_id as emp_id.
+        - No sorting is applied unless defined at the database level.
+    """
 
     sessions = list(
         chat_sessions.find({"user_id": user["emp_id"]})
@@ -63,6 +149,45 @@ def get_sessions(user=Depends(get_current_user)):
 
 @ai_chat_router.post("/message")
 def save_message(payload: SaveMessage):
+    """
+    Persist a chat message into the chat_messages collection.
+
+    This endpoint:
+        1. Accepts a structured message payload.
+        2. Converts session_id into a MongoDB ObjectId.
+        3. Stores the message along with metadata and timestamp.
+        4. Inserts the record into the `chat_messages` collection.
+
+    Request Body:
+        SaveMessage:
+            - session_id (str): MongoDB ObjectId string of the chat session.
+            - user_id (str | int): Identifier of the message sender.
+            - role (str): Message role (e.g., "user", "assistant", "system").
+            - content (str): Main message text.
+            - analysis (Optional[Any]): Optional structured analysis data.
+            - data (Optional[Any]): Optional structured response data.
+
+    Stored Fields:
+        - session_id (ObjectId)
+        - user_id
+        - role
+        - content
+        - analysis
+        - data
+        - created_at (UTC timestamp)
+
+    Returns:
+        dict:
+            {
+                "status": "saved"
+            }
+
+    Notes:
+        - Timestamp is generated using UTC for consistency.
+        - Assumes payload.session_id is a valid ObjectId string.
+        - No duplicate detection or validation logic is applied.
+        - Designed for internal chat history persistence.
+    """
 
     message = {
         "session_id": ObjectId(payload.session_id),
@@ -80,6 +205,40 @@ def save_message(payload: SaveMessage):
 
 @ai_chat_router.get("/messages/{session_id}")
 def get_messages(session_id: str):
+    """
+    Retrieve all chat messages for a given session.
+
+    This endpoint:
+        1. Queries the `chat_messages` collection using the provided session_id.
+        2. Sorts messages in ascending order by `created_at`.
+        3. Converts MongoDB ObjectId fields to string format
+           for JSON serialization compatibility.
+
+    Path Parameters:
+        session_id (str):
+            MongoDB ObjectId string representing the chat session.
+
+    Returns:
+        list[dict]:
+            A list of message documents sorted chronologically.
+            Each message includes:
+                - _id (str)
+                - session_id (str)
+                - role (if stored)
+                - content
+                - created_at
+                - any additional stored metadata
+
+    Behavior:
+        - Converts both `_id` and `session_id` from ObjectId to string.
+        - Returns messages in oldest-to-newest order.
+
+    Notes:
+        - Assumes `session_id` is a valid MongoDB ObjectId string.
+        - No explicit authentication/authorization enforcement
+          is implemented in this endpoint.
+        - If no messages exist, an empty list is returned.
+    """
 
     messages = list(
         chat_messages.find(
@@ -97,7 +256,6 @@ def get_messages(session_id: str):
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY1")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY2")
 GROK_API_KEY = os.getenv("GROK_API_KEY")
-# print("~~~~~~~~~~~~~~~~~~GEMINI_API_KEY-----------------",GEMINI_API_KEY)
 llm = ChatGroq(
     model="qwen/qwen3-32b",
     # model="moonshotai/kimi-k2-instruct-0905",
@@ -138,9 +296,44 @@ llm_with_tools = llm.bind_tools(tools)
 
 def extract_text(content):
     """
-    Normalize LLM content to plain string.
-    Handles string | list | dict safely.
+    Normalize LLM response content into a clean plain string.
+
+    This utility ensures consistent text extraction from various
+    LLM response formats, including strings, lists, and dictionaries.
+
+    Supported Input Types:
+        - str:
+            Returned after trimming whitespace.
+        - list:
+            Iterates through items and extracts:
+                • `item["text"]` if item is a dict containing "text"
+                • the string itself if item is a str
+            Concatenates all extracted values into a single string.
+        - dict:
+            Returns the value of the "message" key if present.
+        - None:
+            Returns an empty string.
+        - Any other type:
+            Converted to string using `str()`.
+
+    Args:
+        content (Any):
+            Raw LLM response content.
+
+    Returns:
+        str:
+            Normalized plain-text representation.
+
+    Design Rationale:
+        - Handles heterogeneous LLM output structures safely.
+        - Prevents runtime errors caused by unexpected content types.
+        - Ensures downstream consumers always receive a string.
+
+    Intended Usage:
+        Used as a safeguard when returning non-tool LLM responses
+        to maintain predictable API behavior.
     """
+
     if content is None:
         return ""
 
@@ -165,6 +358,38 @@ def extract_text(content):
 
 
 def extract_json(text: str):
+    """
+    Extract and parse the first JSON array found in a text string.
+
+    This function searches the input text for the first occurrence
+    of a JSON array pattern (i.e., content enclosed in square brackets),
+    attempts to deserialize it into a Python object, and returns it.
+
+    Args:
+        text (str):
+            Raw text that may contain an embedded JSON array.
+
+    Returns:
+        list:
+            - Parsed Python list if a valid JSON array is found.
+            - Empty list [] if no valid JSON array is detected
+              or if parsing fails.
+
+    Behavior:
+        - Uses a regex pattern to match the first "[ ... ]" block.
+        - Operates in DOTALL mode to allow multi-line matching.
+        - Silently suppresses JSON decoding or regex errors.
+
+    Limitations:
+        - Greedy matching may capture more than intended if multiple
+          JSON arrays exist in the text.
+        - Only extracts JSON arrays (not JSON objects `{}`).
+        - Returns empty list instead of raising exceptions.
+
+    Intended Use:
+        Primarily used for safely extracting structured ticket
+        data from LLM-generated responses.
+    """
     try:
         match = re.search(r"\[.*\]", text, re.S)
         if match:
@@ -205,7 +430,77 @@ def chat_with_ai(
     request: Request,
     user=Depends(get_current_user)
 ):
-    
+    """
+    AI-driven CRM command endpoint.
+
+    This endpoint processes natural language CRM instructions and converts them
+    into controlled backend operations using a tool-restricted LLM workflow.
+    The authenticated user's role determines permitted actions.
+
+    Authentication:
+        - Requires valid JWT via Authorization header.
+        - User identity and role are resolved via `get_current_user` dependency.
+        - Tokens are injected internally into tool calls.
+        - Clients must NOT provide token, emp_id, or customer_id manually.
+
+    Supported Domains:
+        CUSTOMER:
+            - Fetch all customers
+            - Fetch customer by email
+            - Create customer (multi-step draft supported)
+            - Update customer
+
+        TICKET:
+            - Create ticket
+            - Fetch all tickets (Admin/Agent)
+            - Fetch my tickets (Service Person / Customer)
+            - Fetch tickets by customer (Admin/Agent only)
+            - Update ticket (with strict role + status validation)
+            - Ticket analytics per employee
+
+    Core Responsibilities:
+        1. Interpret user intent from natural language.
+        2. Validate required fields before tool execution.
+        3. Enforce strict role-based authorization.
+        4. Prevent invalid or unauthorized ticket status transitions.
+        5. Execute exactly one valid backend tool per request when applicable.
+        6. Apply LLM-based second-pass filtering for ticket queries
+           (e.g., priority or status filtering).
+
+    Ticket Status Authorization Rules:
+        - If ticket status is "Open":
+            • Only the assigned Service Person may move it to "In_Progress".
+            • Admin/Agent cannot modify status while it is "Open".
+        - Unauthorized attempts are blocked before tool execution.
+
+    Draft Handling:
+        - Customer creation supports multi-turn draft accumulation.
+        - Required fields are validated before final creation.
+        - Draft is cleared after successful submission.
+
+    Filtering Behavior:
+        - Filtering requests (e.g., "high priority tickets") trigger
+          the appropriate base fetch operation.
+        - Filtering is applied via secondary LLM pass.
+        - The system does not reject filtering requests.
+
+    Returns:
+        ChatResponse:
+            {
+                "message": str,        # Operation result or clarification
+                "data": Optional[Any]  # Structured data when applicable
+            }
+
+    Error Handling:
+        - Backend validation errors are returned in the message field.
+        - Unhandled exceptions return:
+              "AI system error: <error_message>"
+
+    Notes:
+        - This endpoint is deterministic and tool-restricted.
+        - It is not a conversational chatbot.
+        - Unsupported intents return guidance only.
+    """
     chat_sessions.create_index("user_id")
     chat_messages.create_index("session_id")
     chat_messages.create_index("created_at")
@@ -297,6 +592,34 @@ FIELD & AUTH RULES (CRITICAL)
 - NEVER ask the user for token, emp_id, or customer_id
 - NEVER fabricate IDs
 - Identity must always come from authentication context
+
+------------------------------------
+FIELD & AUTH RULES (CRITICAL)
+------------------------------------
+------------------------------------
+TICKET STATUS AUTHORIZATION RULE (STRICT)
+------------------------------------
+
+Before calling update_ticket for ticket_status change:
+
+- You MUST check:
+  1. Current ticket_status
+  2. Authenticated user role
+
+RULES:
+
+1. If ticket_status is "Open":
+   - ADMIN and AGENT are NOT allowed to change the status.
+   - Only the assigned SERVICE PERSON may change status from "Open" to "InProgress".
+
+2. If ADMIN or AGENT attempts to change status while ticket is "Open":
+   - DO NOT call update_ticket
+   - Respond:
+     "You are not authorized to update this ticket while it is Open."
+
+3. Never bypass this rule.
+4. If role permission fails → do NOT generate tool_calls.
+
 
 ------------------------------------
 REQUIRED VS OPTIONAL FIELDS
@@ -477,17 +800,11 @@ Your goal is SAFE, PREDICTABLE, and CORRECT CRM automation.
         ]
         if auth_header:
             token = auth_header.split(" ")[1]
-        print("********** Token ***************",token)
 
         user_id = user.get("emp_id")
         draft = CUSTOMER_DRAFTS.get(user_id, {})
 
-
-        print("==================user-----------------",user)
-        print("TOken is here ", token)
-
         ai_response = llm_with_tools.invoke(messages)
-        print("AI RESPONSE:", ai_response)
 
         # ✅ TOOL CALL (controlled by API, not LLM args)
         if getattr(ai_response, "tool_calls", None):
@@ -498,7 +815,6 @@ Your goal is SAFE, PREDICTABLE, and CORRECT CRM automation.
             # # Inject token
             # tool_args["token"] = request.token
 
-            # print(tool_name)
             #---------------------------- Customer ----------------------------
             if tool_name == "fetch_all_customers":
                 tool_args = {
@@ -509,7 +825,6 @@ Your goal is SAFE, PREDICTABLE, and CORRECT CRM automation.
                 customers = fetch_all_customers.invoke(tool_args)
                 if isinstance(customers,dict) and customers.get('detail'):
                     return {"message":customers['detail']}
-                print("***** customers **********",customers)
                 return {
                     "message": "Customers fetched successfully",
                     "data": customers
@@ -518,7 +833,6 @@ Your goal is SAFE, PREDICTABLE, and CORRECT CRM automation.
                 tool_args = tool_call.get("args", {})
 
                 tool_args["token"] = token
-                print("$$$$$ Tool args $$$$$$$$$$$$$",tool_args)
                 customer = fetch_customer_by_email.invoke(tool_args)
                 if isinstance(customer,dict) and customer.get('detail'):
                     return {"message":customer['detail']}
@@ -537,7 +851,6 @@ Your goal is SAFE, PREDICTABLE, and CORRECT CRM automation.
                         draft[k] = v
 
                 CUSTOMER_DRAFTS[user_id] = draft
-                print("CUSTOMER_DRAFTS[user_id]",CUSTOMER_DRAFTS[user_id])
 
                 # check missing fields
                 missing = REQUIRED_FIELDS - set(draft.keys())
@@ -549,7 +862,6 @@ Your goal is SAFE, PREDICTABLE, and CORRECT CRM automation.
 
                 # all fields available → call tool
                 draft["token"] = token
-                print(draft)
                 result = create_customer.invoke(draft)
 
                 # clear draft after success
@@ -566,7 +878,6 @@ Your goal is SAFE, PREDICTABLE, and CORRECT CRM automation.
                 tool_args = tool_call.get("args", {})
 
                 tool_args["token"] = token
-                print("$$$$$ Tool args $$$$$$$$$$$$$",tool_args)
                 result = update_customer.invoke(tool_args)
                 if isinstance(result, list):
                     return {
@@ -592,7 +903,6 @@ Your goal is SAFE, PREDICTABLE, and CORRECT CRM automation.
 
                 # all fields available → call tool
                 draft["token"] = token
-                print(draft)
                 result = create_ticket.invoke(draft)
 
 
@@ -694,7 +1004,6 @@ Your goal is SAFE, PREDICTABLE, and CORRECT CRM automation.
                 #     "data": tickets
                 # }
             elif tool_name == "fetch_all_tickets":
-                print("++++++++++++Token________________",token)
                 tool_argss = {
                     "token": token,
                     "user": user
@@ -702,7 +1011,6 @@ Your goal is SAFE, PREDICTABLE, and CORRECT CRM automation.
                 }
 
                 tickets = fetch_all_tickets.invoke(tool_argss)
-                print("Tickets --------------------------",tickets)
                 if isinstance(tickets, dict) and tickets.get('detail'):
                     return {"message": tickets['detail']}
 
@@ -728,18 +1036,13 @@ Your goal is SAFE, PREDICTABLE, and CORRECT CRM automation.
                     )
                 ]
 
-                print("**********filter_message ***************",filter_messages)
-
 
                 filtered = llm.invoke(filter_messages)
-                print("**** filtered *********",filtered)
 
                 # filtered_text = extract_text(filtered.content)
 
                 # filtered_json = extract_json(filtered_text)
                 filtered_json = extract_json(filtered.content)
-                print("*********** filtered_json **************",filtered_json)
-                print("returning")
                 return {
                     "message": "Tickets fetched successfully",
                     "data": filtered_json
@@ -749,10 +1052,8 @@ Your goal is SAFE, PREDICTABLE, and CORRECT CRM automation.
                 #     return {"message": "You are not authorized to view other customers' tickets"}
 
                 tool_args = tool_call.get("args", {})
-                print("^^^^^^^^^^^ tool arge ^^^^^^^^^^^^^ :",tool_args)
                 tool_args["token"] = token
                 tool_args["user"] = user
-                print("^^^^^^^^^^^ tool arge ^^^^^^^^^^^^^ :",tool_args)
 
                 tickets = fetch_tickets_by_customer.invoke(tool_args)
 
@@ -782,7 +1083,6 @@ Your goal is SAFE, PREDICTABLE, and CORRECT CRM automation.
                     "data": filtered_json
                 }
             elif tool_name == "ticket_analysis_per_emp":
-                print("&&&&&&&&& Tool args",tool_call.get("args", {}))
                 tool_args = tool_call.get("args", {})
                 # tool_args = {
                 #     "emp_id": user["emp_id"],
@@ -791,7 +1091,6 @@ Your goal is SAFE, PREDICTABLE, and CORRECT CRM automation.
                 tool_args["token"] = token
 
                 analysis = ticket_analysis_per_emp.invoke(tool_args)
-                print("^^^^^^^^^^^ analysis ",analysis)
 
                 # if isinstance(analysis, dict) and analysis.get("detail"):
                 #     return {"message": analysis["detail"]}
@@ -804,7 +1103,17 @@ Your goal is SAFE, PREDICTABLE, and CORRECT CRM automation.
 
                 tool_args = tool_call.get("args", {})
                 tool_args["token"] = token
-                print("^^^^^^^^^^ tool args -------------",tool_args)
+                if tool_args.get("ticket_status"):
+                    status_mapping = {
+                        "InProgress": "In_Progress",
+                        "In Progress": "In_Progress",
+                        "in Progress": "In_Progress",
+                        "In progress": "In_Progress",
+                        "in progress": "In_Progress",
+                        "in progress": "In_Progress",
+                        "in_progress": "In_Progress"
+                    }
+                    tool_args["ticket_status"] = status_mapping.get(tool_args["ticket_status"], tool_args["ticket_status"])
 
                 result = update_ticket.invoke(tool_args)
 

@@ -24,10 +24,55 @@ st.title("🎫 Smart Support Desk")
 
 # ---------------- HELPERS ----------------
 def get_user(token):
+    """
+    Decode a JWT access token and return the user payload.
+
+    This function decodes the JWT without verifying the signature.
+    It is intended for extracting non-sensitive user metadata
+    (e.g., role, user IDs) in trusted internal flows.
+
+    Parameters
+    ----------
+    token : str
+        JWT access token (typically from Authorization header).
+
+    Returns
+    -------
+    dict
+        Decoded JWT payload containing user information such as
+        role, customer_id, emp_id, email, etc.
+
+    Notes
+    -----
+    - Signature verification is disabled.
+    - Do NOT use this method for security-critical validation.
+    - Token authenticity must be ensured upstream.
+    """
     return jwt.decode(token, options={"verify_signature": False})
 
 
 def get_role(token):
+    """
+    Extract the user's role from a JWT access token.
+
+    This is a convenience wrapper around `get_user()` to
+    quickly determine the authorization role of the requester.
+
+    Parameters
+    ----------
+    token : str
+        JWT access token.
+
+    Returns
+    -------
+    str
+        User role (e.g., 'Admin', 'Agent', 'Customer').
+
+    Raises
+    ------
+    KeyError
+        If the 'role' field is missing from the token payload.
+    """
     return get_user(token)["role"]
 
 
@@ -89,13 +134,13 @@ else:
         st.session_state.menu = menu_labels[0]
 
     selected = st.sidebar.radio(
-        "Menu",
-        menu_labels,
-        index=menu_labels.index(st.session_state.menu)
-    )
+            "Menu",
+            menu_labels,
+            key="menu"
+        )
 
-    st.session_state.menu = selected
     menu = dict(zip(menu_labels, menu_keys))[selected]
+
     # ---------------- ROUTING ----------------
     if menu == "dashboard":
         if role == "Customer":

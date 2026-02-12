@@ -6,6 +6,20 @@ from dotenv import load_dotenv
 
 
 def access_db():
+    """
+    Establish and return a connection to the MySQL database.
+
+    This function connects to the `smart_support_desk` MySQL database
+    using PyMySQL and returns a connection object with dictionary-style
+    cursors, allowing results to be accessed as dictionaries.
+
+    Returns:
+    - pymysql.connections.Connection: Database connection object.
+
+    Raises:
+    - RuntimeError: If the connection to the database fails.
+    """
+
     try:
         connection = pymysql.connect(host='localhost',
                              user='root',
@@ -14,7 +28,6 @@ def access_db():
                              cursorclass=pymysql.cursors.DictCursor)
         return connection
     except pymysql.MySQLError as e:
-        print("DB Connection Error:", e)
         raise HTTPException(status_code=500, detail="Database connection failed")
 
 

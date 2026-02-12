@@ -61,15 +61,12 @@ def fetch_customer_by_email(token:str,email:str) -> list[dict]:
     Fetch customer by email from the hubspot,
     email is mandotory for fetch customer .
     """
-    print("Hello===============",token)
-    print("email---------------",email)
     response = requests.get(
         f"{API_BASE_URL}/hubspot/customer_email/{email}",
         headers={
                 "Authorization": f"Bearer {token}"
             }
     )
-    print(response.json()['properties'])
     return [response.json()['properties']]
 
 
@@ -112,7 +109,6 @@ def create_customer(
                 "Authorization": f"Bearer {token}"
             }
         )
-        print("+++++++++++ response +++++++++++",response.json())
         return response.json()
 
     except KeyError as e:
@@ -150,7 +146,6 @@ def update_customer(
         for k, v in kwargs.items():
             if v not in (None, "", []):
                 payload[k] = v
-        print("????????? payload ??????????",payload)
 
         response = requests.put(
             f"{API_BASE_URL}/update_customer",

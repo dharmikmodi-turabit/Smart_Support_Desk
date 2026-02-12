@@ -38,6 +38,28 @@ def employee_registration(
     user=Depends(employee_create_permission),
     db=Depends(access_db)
 ):
+    """
+    Register a new employee in the system.
+
+    This endpoint allows Admins or Agents (with restrictions) to create
+    a new employee record. Agents can only register Service Persons.
+    The employee's type, email, password, and other details are stored
+    in the database.
+
+    Args:
+    - data (EmployeeRegister): Employee registration details.
+    - user (dict, Depends): Current authenticated user (Admin or Agent).
+    - db (Connection, Depends): Database connection.
+
+    Returns:
+    - dict: Success message.
+
+    Raises:
+    - HTTPException (403): If an Agent tries to register a role other than Service Person.
+    - HTTPException (409): If the employee email already exists.
+    - HTTPException (500): If an unexpected error occurs.
+    """
+
     creator_role = user["role"]
 
     # AGENT RESTRICTION
@@ -82,6 +104,22 @@ def employee_registration(
 
 @employee_router.get("/all_employees", tags=["Employee"])
 def fetch_all_employees(user=Depends(admin_required),db = Depends(access_db)):
+    """
+    Fetch all employees from the database.
+
+    Only Admin users can access this endpoint.
+
+    Args:
+    - user (dict, Depends): Current authenticated Admin user.
+    - db (Connection, Depends): Database connection.
+
+    Returns:
+    - list[dict]: List of employee records.
+
+    Raises:
+    - HTTPException (404): If no employees are found.
+    """
+
     try:
         with db:
             with db.cursor() as cursor:
@@ -103,6 +141,27 @@ def fetch_all_employees(user=Depends(admin_required),db = Depends(access_db)):
 
 @employee_router.post("/employee_login", tags=["Employee"])
 def employee_login(data: Login, db=Depends(access_db)):
+    """
+    Authenticate an employee and return a JWT access token.
+
+    This endpoint validates employee credentials (email and password),
+    generates a JWT token, and stores it in Redis for session management.
+
+    Args:
+    - data (Login): Employee login credentials.
+    - db (Connection, Depends): Database connection.
+
+    Returns:
+    - dict: {
+        "access_token": str,
+        "token_type": "bearer"
+    }
+
+    Raises:
+    - HTTPException (401): If credentials are invalid.
+    - HTTPException (500): If an unexpected error occurs.
+    """
+
     try:
         with db:
             with db.cursor() as cursor:
@@ -118,7 +177,6 @@ def employee_login(data: Login, db=Depends(access_db)):
                         WHERE e.employee_email = %s
                     """, (data.email,))
                 user = cursor.fetchone()
-                # print(user)
 
                 if not user or user["employee_password"] != data.password:
                     raise HTTPException(status_code=401, detail="Invalid credentials")
@@ -147,6 +205,25 @@ def employee_login(data: Login, db=Depends(access_db)):
 
 @employee_router.put("/employee_update", tags=["Employee"])
 def update_employee(data : EmployeeRegister,user=Depends(admin_required),db = Depends(access_db)):
+    """
+    Update an existing employee's information.
+
+    Only Admin users can update employee records. Fields that are left
+    empty in the request will retain their current values.
+
+    Args:
+    - data (EmployeeRegister): Employee details to update.
+    - user (dict, Depends): Current authenticated Admin user.
+    - db (Connection, Depends): Database connection.
+
+    Returns:
+    - HTTP 202 Accepted on successful update.
+
+    Raises:
+    - HTTPException (404): If the employee email does not exist.
+    - HTTPException (500): If an unexpected error occurs.
+    """
+
     try:
         with db:
             with db.cursor() as cursor:
@@ -179,6 +256,25 @@ def update_employee(data : EmployeeRegister,user=Depends(admin_required),db = De
     
 @employee_router.delete("/employee_remove", tags=["Employee"])
 def remove_employee(data : DeleteUser,user=Depends(admin_required),db = Depends(access_db)):
+    """
+    Delete an employee from the system.
+
+    Only Admin users can remove employees. The endpoint checks if the
+    employee exists before deletion.
+
+    Args:
+    - data (DeleteUser): Email of the employee to delete.
+    - user (dict, Depends): Current authenticated Admin user.
+    - db (Connection, Depends): Database connection.
+
+    Returns:
+    - HTTP 200 OK on successful deletion.
+
+    Raises:
+    - HTTPException (404): If the employee email does not exist.
+    - HTTPException (500): If an unexpected error occurs.
+    """
+
     try:
         with db:
             with db.cursor() as cursor:
