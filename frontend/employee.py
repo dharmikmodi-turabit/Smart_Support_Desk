@@ -264,8 +264,6 @@ def employee_update():
         st.success("Employee updated successfully 🎉")
 
 
-
-
 def service_person_tickets():
     """
     Display tickets assigned to the currently logged-in service person.
@@ -301,6 +299,9 @@ def service_person_tickets():
 
 
 
+import streamlit as st
+import pandas as pd
+from api import api_call
 
 
 def employee_chat_dashboard():

@@ -60,17 +60,23 @@ def fetch_all_tickets(user=Depends(get_current_user), db=Depends(access_db)):
             404 - If no tickets are found.
             500 - If a database or server error occurs.
     """
-    with db:
-        with db.cursor() as cursor:
-            cursor.execute("select * from ticket")
-            tickets = cursor.fetchall()
-            if not tickets:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="No tickets found"
-                )
-            return tickets
-
+    try:
+        with db:
+            with db.cursor() as cursor:
+                cursor.execute("select * from ticket")
+                d = cursor.fetchall()
+                if d:
+                    return d
+                else:
+                    raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail="Ticket not found"
+                        )
+    except Exception as e:
+        raise HTTPException(
+        status_code=500,
+        detail=str(e)
+    )
     
 @ticket_router.post("/ticket_registration", tags=["Ticket"])
 def ticket_registration(data:TicketRegister,user=Depends(admin_agent_required),db = Depends(access_db)):
@@ -294,14 +300,12 @@ def update_ticket(data: TicketUpdate, user=Depends(get_current_user), db=Depends
                     (data.ticket_id,)
                 )
                 ticket = cursor.fetchone()
-
                 if ticket:
                     cursor.execute(
                         "select * from employee where employee_id = %s",
                         (user["emp_id"],)
                     )
                     e = cursor.fetchone()
-
                     if e:
                         if e['employee_type'] == 3:
                             query = '''update ticket set 
@@ -542,36 +546,68 @@ def customer_my_tickets(user=Depends(customer_required), db=Depends(access_db)):
             detail=str(e)
         )
 
+class FetchTicketsRequest(BaseModel):
+    customer_email: str
 
+@ticket_router.post("/fetch_tickets_by_customer", tags=["Ticket"])
+def fetch_tickets_by_customer(data:FetchTicketsRequest,user=Depends(get_current_user), db=Depends(access_db)):
+    """
+    Fetch all tickets associated with a specific customer email.
 
-# @ticket_router.get("/profile", tags=["Ticket"])
-# def profile(user=Depends(get_current_user), db=Depends(access_db)):
-#     emp_id = user["emp_id"]
+    This endpoint:
+        1. Accepts a customer email in the request body.
+        2. Looks up the corresponding customer_id from the database.
+        3. Retrieves all tickets linked to that customer_id.
 
-#     cursor = db.cursor()
-#     cursor.execute(
-#         "select count(*) as total from ticket where service_person_emp_id=%s",
-#         (emp_id,)
-#     )
-#     total = cursor.fetchone()["total"]
+    Request Body:
+        FetchTicketsRequest:
+            customer_email (str): Email address of the customer.
 
-#     cursor.execute(
-#         "select count(*) as open from ticket where ticket_status='Open' and service_person_emp_id=%s",
-#         (emp_id,)
-#     )
-#     open_t = cursor.fetchone()["open"]
+    Dependencies:
+        user:
+            Authenticated user injected via `get_current_user`.
+            (Role-based restrictions should be enforced upstream if required.)
+        db:
+            Active database connection provided by `access_db`.
 
-#     cursor.execute(
-#         "select count(*) as closed from ticket where ticket_status='Close' and service_person_emp_id=%s",
-#         (emp_id,)
-#     )
-#     closed = cursor.fetchone()["closed"]
+    Returns:
+        list[dict]:
+            A list of ticket records belonging to the customer.
 
-#     return {
-#         "total": total,
-#         "open": open_t,
-#         "closed": closed
-#     }
+        OR
+
+        dict:
+            {
+                "message": "Customer not found"
+            }
+            If no customer exists with the given email.
+
+    Database Flow:
+        - Query 1: Fetch customer_id from `customer` table using customer_email.
+        - Query 2: Fetch all records from `ticket` table using customer_id.
+
+    Notes:
+        - Email must exist in the `customer` table before ticket retrieval.
+        - This endpoint does not apply filtering (status/priority).
+        - Returns raw ticket records as stored in the database.
+        - Authorization logic (e.g., Admin/Agent-only access) should be
+          enforced before allowing cross-customer ticket access.
+    """
+    cursor = db.cursor()
+    cursor.execute("select customer_id from customer where customer_email = %s",(data.customer_email,))
+
+    customer = cursor.fetchone()
+    
+    if not customer:
+        return {"message": "Customer not found"}
+
+    customer_id = customer['customer_id']   # VERY IMPORTANT
+    cursor.execute(
+        "select * from ticket where customer_id=%s",
+        (customer_id,)
+    )
+    return cursor.fetchall()
+
 
 
 @ticket_router.get("/customer_ticket_messages/{ticket_id}", tags=["Ticket"])

@@ -33,7 +33,6 @@ def customer_view():
         st.dataframe(data)
 
 
-
 def customer_add():
     """
     Render the customer registration form and create a new customer.

@@ -6,6 +6,8 @@ from auth import create_access_token
 from hubspot_contacts import sync_contact
 from hubspot_contacts import fetch_contact_by_id
 from hubspot_delete import delete_hubspot_object
+from typing import Optional
+
 
 customer_router = APIRouter()
 
@@ -46,7 +48,6 @@ def fetch_all_customers(user=Depends(admin_agent_required),db = Depends(access_d
     - HTTPException (404): If no customers are found in the database.
     - HTTPException (500): If any unexpected error occurs during database access.
     """
-
     try:
         with db:
             with db.cursor() as cursor:
@@ -181,8 +182,6 @@ def customer_registration(data:CustomerRegister,user=Depends(admin_agent_require
 
                 return {"status_code":status.HTTP_201_CREATED, "message":"Customer registered"}
     except Exception as e:
-        print(e)
-        print(str(e))
         raise HTTPException(
         status_code=500,
         detail=str(e)
@@ -228,9 +227,18 @@ def customer_login(data: CustomerLogin, db=Depends(access_db)):
         "role": "Customer"
     })}
 
+class Update_customer(BaseModel):
+    name : Optional[str] = None
+    email : str | None = None
+    mobile_number : str | None = None
+    company_name : Optional[str] = None
+    city : Optional[str] = None
+    state : Optional[str] = None
+    country : Optional[str] = None
+    address : Optional[str] = None
 
 @customer_router.put("/update_customer", tags=["Customer"])
-def update_customer(data : CustomerRegister,user=Depends(admin_agent_required),db = Depends(access_db)):
+def update_customer(data : Update_customer,user=Depends(admin_agent_required),db = Depends(access_db)):
     """
     Update an existing customer's details and synchronize with HubSpot.
 
@@ -274,13 +282,13 @@ def update_customer(data : CustomerRegister,user=Depends(admin_agent_required),d
                     customer_country = %s, 
                     customer_address = %s 
                     where customer_email = %s'''
-                    values = (data.name if data.name != "" else d['customer_name'],
-                              data.mobile_number if data.mobile_number != "" else d['customer_mobile_number'],
-                              data.company_name if data.company_name != "" else d['customer_company_name'],
-                              data.city if data.city != "" else d['customer_city'],
-                              data.state if data.state != "" else d['customer_state'],
-                              data.country if data.country != "" else d['customer_country'],
-                              data.address if data.address != "" else d['customer_address'],
+                    values = (data.name if data.name != "" and data.name is not None else d['customer_name'],
+                              data.mobile_number if data.mobile_number != "" and data.mobile_number is not None else d['customer_mobile_number'],
+                              data.company_name if data.company_name != "" and data.company_name is not None else d['customer_company_name'],
+                              data.city if data.city != "" and data.city is not None else d['customer_city'],
+                              data.state if data.state != ""and data.state is not None else d['customer_state'],
+                              data.country if data.country != "" and data.country is not None else d['customer_country'],
+                              data.address if data.address != "" and data.address is not None else d['customer_address'],
                               data.email)
                     cursor.execute(query,values)
                     db.commit()
@@ -309,7 +317,7 @@ def update_customer(data : CustomerRegister,user=Depends(admin_agent_required),d
     except Exception as e:
         raise HTTPException(
         status_code=500,
-        detail="dharmik"+str(e)
+        detail=str(e)
     )
 
 @customer_router.delete("/remove_customer", tags=["Customer"])

@@ -3,7 +3,6 @@ from api import api_call
 import pandas as pd
 import plotly.express as px
 
-
 def employee_dashboard(user):
     """
     Render the employee dashboard UI for Admins and Agents.
