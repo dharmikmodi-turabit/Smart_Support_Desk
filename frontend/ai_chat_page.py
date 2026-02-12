@@ -252,103 +252,104 @@ def ai_chatbot_page():
                     token,
                     {"prompt": user_prompt}
                 )
+                print(ai_response)
 
-            if ai_response is None:
-                st.error("Backend returned no response")
-                return
+                if ai_response is None:
+                    st.error("Backend returned no response")
+                    return
 
-            message = ai_response.get("message", "")
-            data = ai_response.get("data")
-            analysis = ai_response.get("analysis")
+                message = ai_response.get("message", "")
+                data = ai_response.get("data")
+                analysis = ai_response["data"]
 
-            # -------- ANALYTICS RESPONSE --------
-            if analysis:
-                chart_df = pd.DataFrame({
-                    "Status": ["Open", "In Progress", "Closed"],
-                    "Count": [
-                        analysis.get("Opened_ticket_count", 0),
-                        analysis.get("in_progress_ticket_count", 0),
-                        analysis.get("Closed_ticket_count", 0)
-                    ]
-                })
+                # -------- ANALYTICS RESPONSE --------
+                if analysis:
+                    chart_df = pd.DataFrame({
+                        "Status": ["Open", "In Progress", "Closed"],
+                        "Count": [
+                            analysis.get("Opened_ticket_count", 0),
+                            analysis.get("in_progress_ticket_count", 0),
+                            analysis.get("Closed_ticket_count", 0)
+                        ]
+                    })
 
-                st.markdown(message)
-                fig = px.pie(chart_df, names="Status", values="Count", hole=0.55)
-                st.plotly_chart(fig, width="stretch")
+                    st.markdown(message)
+                    fig = px.pie(chart_df, names="Status", values="Count", hole=0.55)
+                    st.plotly_chart(fig, width="stretch")
 
-                api_call(
-                    "POST",
-                    "/ai/message",
-                    token,
-                    {
-                        "session_id": st.session_state["session_id"],
-                        "user_id": user_id,
-                        "role": "assistant",
-                        "content": message,
-                        "analysis": analysis
-                    }
-                )
-                messages = api_call(
-                    "GET",
-                    f"/ai/messages/{st.session_state['session_id']}",
-                    token
-                )
+                    api_call(
+                        "POST",
+                        "/ai/message",
+                        token,
+                        {
+                            "session_id": st.session_state["session_id"],
+                            "user_id": user_id,
+                            "role": "assistant",
+                            "content": message,
+                            "analysis": analysis
+                        }
+                    )
+                    messages = api_call(
+                        "GET",
+                        f"/ai/messages/{st.session_state['session_id']}",
+                        token
+                    )
 
-                st.session_state.ai_chat_history = messages
-                st.session_state.loaded_session_id = st.session_state["session_id"]
+                    st.session_state.ai_chat_history = messages
+                    st.session_state.loaded_session_id = st.session_state["session_id"]
 
-                st.rerun()
+                    st.rerun()
 
-            # -------- TABLE RESPONSE --------
-            elif isinstance(data, list):
-                st.markdown(message)
-                st.dataframe(pd.DataFrame(data), width="stretch", hide_index=True)
+                # -------- TABLE RESPONSE --------
+                elif isinstance(data, list):
+                    st.markdown(message)
+                    st.dataframe(pd.DataFrame(data), width="stretch", hide_index=True)
 
-                api_call(
-                    "POST",
-                    "/ai/message",
-                    token,
-                    {
-                        "session_id": st.session_state["session_id"],
-                        "user_id": user_id,
-                        "role": "assistant",
-                        "content": message,
-                        "data": data
-                    }
-                )
-                messages = api_call(
-                    "GET",
-                    f"/ai/messages/{st.session_state['session_id']}",
-                    token
-                )
+                    api_call(
+                        "POST",
+                        "/ai/message",
+                        token,
+                        {
+                            "session_id": st.session_state["session_id"],
+                            "user_id": user_id,
+                            "role": "assistant",
+                            "content": message,
+                            "data": data
+                        }
+                    )
+                    messages = api_call(
+                        "GET",
+                        f"/ai/messages/{st.session_state['session_id']}",
+                        token
+                    )
 
-                st.session_state.ai_chat_history = messages
-                st.session_state.loaded_session_id = st.session_state["session_id"]
+                    st.session_state.ai_chat_history = messages
+                    st.session_state.loaded_session_id = st.session_state["session_id"]
 
-                st.rerun()
+                    st.rerun()
 
-            # -------- TEXT RESPONSE --------
-            else:
-                st.markdown(message)
+                # -------- TEXT RESPONSE --------
+                else:
+                    st.markdown(message)
 
-                api_call(
-                    "POST",
-                    "/ai/message",
-                    token,
-                    {
-                        "session_id": st.session_state["session_id"],
-                        "user_id": user_id,
-                        "role": "assistant",
-                        "content": message
-                    }
-                )
-                messages = api_call(
-                    "GET",
-                    f"/ai/messages/{st.session_state['session_id']}",
-                    token
-                )
+                    api_call(
+                        "POST",
+                        "/ai/message",
+                        token,
+                        {
+                            "session_id": st.session_state["session_id"],
+                            "user_id": user_id,
+                            "role": "assistant",
+                            "content": message
+                        }
+                    )
+                    messages = api_call(
+                        "GET",
+                        f"/ai/messages/{st.session_state['session_id']}",
+                        token
+                    )
 
-                st.session_state.ai_chat_history = messages
-                st.session_state.loaded_session_id = st.session_state["session_id"]
+                    st.session_state.ai_chat_history = messages
+                    st.session_state.loaded_session_id = st.session_state["session_id"]
 
                 st.rerun()
