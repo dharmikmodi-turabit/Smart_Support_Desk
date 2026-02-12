@@ -213,47 +213,6 @@ def sync_contact(customer, db):
     except RequestException as e:
         raise RuntimeError(f"HubSpot API request failed: {e}")
 
-# def fetch_contact_by_email(email: str):
-#     HUBSPOT_TOKEN = os.getenv("HUBSPOT_TOKEN")
-#     headers = {
-#         "Authorization": f"Bearer {HUBSPOT_TOKEN}",
-#         "Content-Type": "application/json"
-#     }
-#     payload = {
-#         "filterGroups": [{
-#             "filters": [{
-#                 "propertyName": "email",
-#                 "operator": "EQ",
-#                 "value": email
-#             }]
-#         }],
-#         "properties": [
-#             "email",
-
-#             "customer_id",
-#             "customer_name",
-#             "customer_email",
-#             "customer_mobile_number",
-#             "customer_company_name",
-#             "customer_city",
-#             "customer_state",
-#             "customer_country",
-#             "customer_address",
-#         ],
-#         "limit": 1
-#     }
-
-
-#     res = requests.post(
-#         f"{url}/crm/v3/objects/contacts/search",
-#         headers=headers,
-#         json=payload
-#     )
-#     res.raise_for_status()
-
-#     results = res.json().get("results", [])
-#     return results[0] if results else None
-
 def fetch_contact_by_id(contact_id: str):
     """
     Fetch a HubSpot contact by contact ID.

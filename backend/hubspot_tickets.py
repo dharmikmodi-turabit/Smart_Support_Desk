@@ -42,7 +42,6 @@ def hubspot_create_ticket(payload):
     """
 
     try:
-        # HUBSPOT_TOKEN = os.getenv("HUBSPOT_TOKEN")
         url = "https://api.hubapi.com/crm/v3/objects/tickets"
         HUBSPOT_TOKEN = os.getenv("HUBSPOT_TOKEN")
 
@@ -135,18 +134,6 @@ def hubspot_ticket_registration(data:HubspotTicketRegister,user=Depends(admin_ag
         status_code=500,
         detail=str(e)
     )
-
-# def hubspot_create_ticket(payload):
-#     # HUBSPOT_TOKEN = os.getenv("HUBSPOT_TOKEN")
-#     url = "https://api.hubapi.com/crm/v3/objects/tickets"
-#     HUBSPOT_TOKEN = os.getenv("HUBSPOT_TOKEN")
-
-#     headers = {
-#         "Authorization": f"Bearer {HUBSPOT_TOKEN}",
-#         "Content-Type": "application/json"
-#     }
-
-#     return requests.post(url, headers=headers, json=payload)
 
 
 

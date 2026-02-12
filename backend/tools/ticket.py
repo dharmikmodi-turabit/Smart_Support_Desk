@@ -25,7 +25,6 @@ class Create_ticket(BaseModel):
     issue_description : str 
     priority : TicketPriority 
     token :str | None = None
-    # generate_datetime : datetime
 
 
 @tool("create_ticket", args_schema=Create_ticket)
@@ -227,14 +226,11 @@ def fetch_all_tickets(token: str=None) -> list[dict]:
     Authentication is handled via injected token.
     """
     try:
-        # if not token:
-        #     return {"detail": "Authentication token missing."}
         response = requests.get(
             f"{API_BASE_URL}/all_tickets",
             headers={
                 "Authorization": f"Bearer {token}"
             },
-            # timeout=20
         )
         return response.json()
     except Exception as e:

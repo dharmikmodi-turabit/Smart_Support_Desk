@@ -45,7 +45,6 @@ def employee_dashboard(user):
     emp_id = user["emp_id"]
     role = user["role"]
 
-    # st.info(f"Logged in as: **{emp_id}**")
 
     # =========================
     # Fetch tickets
@@ -113,27 +112,6 @@ def employee_dashboard(user):
     col2.plotly_chart(fig_priority, use_container_width=True, config={"displayModeBar": False})
 
     st.divider()
-
-    # # =========================
-    # # TICKETS OVER TIME
-    # # =========================
-    # daily = (
-    #     df.groupby(df["generate_datetime"].dt.date)
-    #     .size()
-    #     .reset_index(name="Tickets")
-    # )
-
-    # fig_time = px.line(
-    #     daily,
-    #     x="generate_datetime",
-    #     y="Tickets",
-    #     markers=True,
-    #     title="📈 Tickets Created Over Time"
-    # )
-
-    # st.plotly_chart(fig_time, use_container_width=True, config={"displayModeBar": False})
-
-    # st.divider()
 
     # =========================
     # SERVICE PERSON WORKLOAD

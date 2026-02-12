@@ -28,7 +28,6 @@ def access_db():
                              cursorclass=pymysql.cursors.DictCursor)
         return connection
     except pymysql.MySQLError as e:
-<<<<<<< HEAD
         raise HTTPException(status_code=500, detail="Database connection failed")
 
 
@@ -42,6 +41,3 @@ db = client["ai_crm_chat_db"]
 
 chat_sessions = db["chat_sessions"]
 chat_messages = db["chat_messages"]
-=======
-        raise RuntimeError(f"Database connection failed: {e}")
->>>>>>> origin/main
