@@ -143,9 +143,7 @@ def update_contact(contact_id, customer):
         properties = {k: v for k, v in properties.items() if v}
 
         payload = {"properties": properties}
-        print(payload)
         response = requests.patch(f"{url}/crm/v3/objects/contacts/{contact_id}", json=payload, headers=headers)
-        print("________________--------------------------------------2",response)
         response.raise_for_status()
         return response.json()
     except RequestException as e:
@@ -178,7 +176,6 @@ def sync_contact(customer, db):
         email = customer["customer_email"]
 
         contact_id = customer.get("hubspot_contact_id")
-        print(contact_id)
         # 1️⃣ If ID already stored → update directly
         # if contact_id:
         #     update_contact(contact_id, customer)

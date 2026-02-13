@@ -171,7 +171,7 @@ def ai_chatbot_page():
 
     # -------- Render history --------
 
-    for msg in st.session_state.ai_chat_history:
+    for i, msg in enumerate(st.session_state.ai_chat_history):
         with st.chat_message(msg["role"]):
 
             analysis_data = msg.get("analysis")
@@ -191,7 +191,7 @@ def ai_chatbot_page():
                 })
 
                 fig = px.pie(chart_df, names="Status", values="Count", hole=0.55)
-                st.plotly_chart(fig, width="stretch")
+                st.plotly_chart(fig, width="stretch",key=f"history_chart_{st.session_state['session_id']}_{i}")
 
             # -------- TABLE HISTORY --------
             elif table_data:
@@ -252,7 +252,6 @@ def ai_chatbot_page():
                     token,
                     {"prompt": user_prompt}
                 )
-                print(ai_response)
 
                 if ai_response is None:
                     st.error("Backend returned no response")
@@ -260,22 +259,21 @@ def ai_chatbot_page():
 
                 message = ai_response.get("message", "")
                 data = ai_response.get("data")
-                analysis = ai_response["data"]
 
                 # -------- ANALYTICS RESPONSE --------
-                if analysis:
+                if isinstance(data, dict) and data.get("Opened_ticket_count"):
                     chart_df = pd.DataFrame({
                         "Status": ["Open", "In Progress", "Closed"],
                         "Count": [
-                            analysis.get("Opened_ticket_count", 0),
-                            analysis.get("in_progress_ticket_count", 0),
-                            analysis.get("Closed_ticket_count", 0)
+                            data.get("Opened_ticket_count", 0),
+                            data.get("in_progress_ticket_count", 0),
+                            data.get("Closed_ticket_count", 0)
                         ]
                     })
 
                     st.markdown(message)
                     fig = px.pie(chart_df, names="Status", values="Count", hole=0.55)
-                    st.plotly_chart(fig, width="stretch")
+                    st.plotly_chart(fig, width="stretch",key=f"ticket_analysis_{st.session_state['session_id']}")
 
                     api_call(
                         "POST",
@@ -286,7 +284,7 @@ def ai_chatbot_page():
                             "user_id": user_id,
                             "role": "assistant",
                             "content": message,
-                            "analysis": analysis
+                            "analysis": data
                         }
                     )
                     messages = api_call(
@@ -298,7 +296,7 @@ def ai_chatbot_page():
                     st.session_state.ai_chat_history = messages
                     st.session_state.loaded_session_id = st.session_state["session_id"]
 
-                    st.rerun()
+                    # st.rerun()
 
                 # -------- TABLE RESPONSE --------
                 elif isinstance(data, list):
@@ -326,7 +324,7 @@ def ai_chatbot_page():
                     st.session_state.ai_chat_history = messages
                     st.session_state.loaded_session_id = st.session_state["session_id"]
 
-                    st.rerun()
+                    # st.rerun()
 
                 # -------- TEXT RESPONSE --------
                 else:

@@ -1065,11 +1065,11 @@ Your goal is SAFE, PREDICTABLE, and CORRECT CRM automation.
                 }
             elif tool_name == "ticket_analysis_per_emp":
                 tool_args = tool_call.get("args", {})
-
+                if not tool_args.get("emp_id"):
+                    tool_args["emp_id"]= user_id
                 tool_args["token"] = token
 
                 analysis = ticket_analysis_per_emp.invoke(tool_args)
-                print(analysis)
 
 
                 return {

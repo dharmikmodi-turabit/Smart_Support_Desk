@@ -303,8 +303,7 @@ def update_customer(data : Update_customer,user=Depends(admin_agent_required),db
                     try:
                         sync_contact(customer,db)
                     except Exception as e:
-                        print("HubSpot update failed:", e)
-
+                        pass
                     return {"message": "Customer updated & synced"}
 
                 raise HTTPException(

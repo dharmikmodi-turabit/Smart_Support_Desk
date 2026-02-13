@@ -436,20 +436,15 @@ def ticket_analysis_per_emp(emp_id: int, db=Depends(access_db)):
                 else:
                     total_ticket_count = cursor.execute("select * from ticket")
                     d = cursor.fetchall()
-
-                if d:
-                    Opened_ticket_count = cursor.execute(
-                        "select * from ticket where ticket_status = %s",
-                        "Open"
-                    )
-                    in_progress_ticket_count = cursor.execute(
-                        "select * from ticket where ticket_status = %s",
-                        "In_Progress"
-                    )
-                    Closed_ticket_count = cursor.execute(
-                        "select * from ticket where ticket_status = %s",
-                        "Close"
-                    )
+                if total_ticket_count:
+                    Opened_ticket_count = in_progress_ticket_count = Closed_ticket_count = 0
+                    for i in d:
+                        if i.get("ticket_status") == "Open":
+                            Opened_ticket_count +=1
+                        elif i.get("ticket_status") == "In_Progress":
+                            in_progress_ticket_count +=1
+                        elif i.get("ticket_status") == "Close":
+                            Closed_ticket_count +=1
 
                     return {
                         "total_ticket_count": total_ticket_count,

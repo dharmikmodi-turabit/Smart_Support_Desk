@@ -269,8 +269,6 @@ def hubspot_update_ticket(hubspot_ticket_id, data):
 
         if data.reason:
             payload["properties"]["reason"] = data.reason
-           
-        # print(payload)
 
         r = requests.patch(
             f"{url}/{hubspot_ticket_id}",

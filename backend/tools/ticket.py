@@ -271,10 +271,8 @@ def fetch_tickets_by_customer(customer_email: str, token: str):
         return {"error": str(e)}
 
 
-
-
 @tool
-def ticket_analysis_per_emp(emp_id: int, token: str=None):
+def ticket_analysis_per_emp(emp_id: int=None, token: str=None):
     """
     Fetch ticket analytics (counts) for an employee.
     """
