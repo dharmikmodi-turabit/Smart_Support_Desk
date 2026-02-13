@@ -450,6 +450,27 @@ def get_customer_from_hubspot(
         status_code=500,
         detail=str(e))
 
+
+@customer_router.get("/hubspot/customer_email/{customer_email}", tags=["Customer"])
+def get_customer_from_hubspot_by_email(
+    customer_email: str,
+    user=Depends(admin_agent_required),
+    db=Depends(access_db)
+):
+    cursor = db.cursor()
+    print(customer_email)
+    cursor.execute(
+        "SELECT hubspot_contact_id FROM customer WHERE customer_email=%s",
+        (customer_email,)
+    )
+    customer = cursor.fetchone()
+
+    if not customer or not customer["hubspot_contact_id"]:
+        raise HTTPException(404, "Customer not synced to HubSpot")
+
+    return fetch_contact_by_id(customer["hubspot_contact_id"])
+
+
 @customer_router.get("/hubspot/customer-delete/{customer_id}", tags=["Customer"])
 def delete_customer_from_hubspot(customer_id:int,db=Depends(access_db)):
     """
