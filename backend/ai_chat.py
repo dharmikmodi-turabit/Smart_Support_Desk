@@ -917,32 +917,54 @@ Your goal is SAFE, PREDICTABLE, and CORRECT CRM automation.
                 if isinstance(tickets, dict) and tickets.get("detail"):
                     return {"message": tickets["detail"]}
 
-                # ---------- SECOND PASS (LLM FILTERING) ----------
-                filter_messages = [
-                    SystemMessage(content="""
-            You are a CRM ticket filtering engine.
+            #     # ---------- SECOND PASS (LLM FILTERING) ----------
+            #     filter_messages = [
+            #         SystemMessage(content="""
+            # You are a CRM ticket filtering engine.
 
-            Filter the provided tickets strictly based on the user's request.
+            # Filter the provided tickets strictly based on the user's request.
 
-            Return ONLY a JSON array.
-            Do NOT include explanations.
-            Output MUST start with [ and end with ].
-            """),
-                    HumanMessage(
-                        content=f"""
-                User request:
-                {payload.prompt}
+            # Return ONLY a JSON array.
+            # Do NOT include explanations.
+            # Output MUST start with [ and end with ].
+            # """),
+            #         HumanMessage(
+            #             content=f"""
+            #     User request:
+            #     {payload.prompt}
 
-                Tickets:
-                {json.dumps(tickets)}
-                """
-                    )
-                ]
+            #     Tickets:
+            #     {json.dumps(tickets)}
+            #     """
+            #         )
+            #     ]
 
-                filtered = llm.invoke(filter_messages)
+            #     filtered = llm.invoke(filter_messages)
 
-                filtered_json = extract_json(filtered.content)
+            #     filtered_json = extract_json(filtered.content)
+                filtered_json = tickets
+                print(filtered_json)
 
+                prompt_lower = payload.prompt.lower()
+
+                if "high" in prompt_lower:
+                    filtered_json = [t for t in filtered_json if t.get("priority") == "High"]
+
+                elif "medium" in prompt_lower:
+                    filtered_json = [t for t in filtered_json if t.get("priority") == "Medium"]
+
+                elif "low" in prompt_lower:
+                    filtered_json = [t for t in filtered_json if t.get("priority") == "Low"]
+
+                if "open" in prompt_lower:
+                    filtered_json = [t for t in filtered_json if t.get("ticket_status") == "Open"]
+
+                elif "close" in prompt_lower:
+                    filtered_json = [t for t in filtered_json if t.get("ticket_status") == "Close"]
+
+                elif "in progress" in prompt_lower:
+                    filtered_json = [t for t in filtered_json if t.get("ticket_status") == "In_Progress"]
+                print(filtered_json)
                 return {
                     "message": "Tickets fetched successfully",
                     "data": filtered_json
@@ -997,35 +1019,62 @@ Your goal is SAFE, PREDICTABLE, and CORRECT CRM automation.
                 }
 
                 tickets = fetch_all_tickets.invoke(tool_argss)
+                print("Tickets++++++++++++++++++++++++++++",tickets)
                 if isinstance(tickets, dict) and tickets.get('detail'):
                     return {"message": tickets['detail']}
 
-                # ---------- SECOND PASS (LLM FILTERING) ----------
-                filter_messages = [
-                    SystemMessage(content="""
-            You are a CRM ticket filtering engine.
+            #     # ---------- SECOND PASS (LLM FILTERING) ----------
+            #     filter_messages = [
+            #         SystemMessage(content=f"""
+            # You are a CRM ticket filtering engine.
 
-            Filter the provided tickets strictly based on the user's request.
+            # Filter the provided tickets strictly based on the user's request.
+            # If {role} is admin and asking for "my tickets" then return all tickets, No need to find id into the data.
 
-            Return ONLY a JSON array.
-            Do NOT include explanations.
-            Output MUST start with [ and end with ].
-            """),
-                    HumanMessage(
-                        content=f"""
-                User request:
-                {payload.prompt}
+            # Return ONLY a JSON array.
+            # Do NOT include explanations.
+            # Output MUST start with [ and end with ].
+            # """),
+            #         HumanMessage(
+            #             content=f"""
+            #     User request:
+            #     {payload.prompt}
 
-                Tickets:
-                {json.dumps(tickets)}
-                """
-                    )
-                ]
+            #     Tickets:
+            #     {json.dumps(tickets)}
+            #     """
+            #         )
+            #     ]
 
 
-                filtered = llm.invoke(filter_messages)
+            #     filtered = llm.invoke(filter_messages)
+            #     print("filtered_________________________",filtered)
 
-                filtered_json = extract_json(filtered.content)
+            #     filtered_json = extract_json(filtered.content)
+            #     print("filtered_json=============================",filtered_json)
+                filtered_json = tickets
+                print(filtered_json)
+
+                prompt_lower = payload.prompt.lower()
+
+                if "high" in prompt_lower:
+                    filtered_json = [t for t in filtered_json if t.get("priority") == "High"]
+
+                elif "medium" in prompt_lower:
+                    filtered_json = [t for t in filtered_json if t.get("priority") == "Medium"]
+
+                elif "low" in prompt_lower:
+                    filtered_json = [t for t in filtered_json if t.get("priority") == "Low"]
+
+                if "open" in prompt_lower:
+                    filtered_json = [t for t in filtered_json if t.get("ticket_status") == "Open"]
+
+                elif "close" in prompt_lower:
+                    filtered_json = [t for t in filtered_json if t.get("ticket_status") == "Close"]
+
+                elif "in progress" in prompt_lower:
+                    filtered_json = [t for t in filtered_json if t.get("ticket_status") == "In_Progress"]
+                print(filtered_json)
                 return {
                     "message": "Tickets fetched successfully",
                     "data": filtered_json

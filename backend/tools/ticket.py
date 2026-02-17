@@ -158,7 +158,7 @@ class EmpMyTickets(BaseModel):
 
 
 @tool("emp_my_tickets", args_schema=EmpMyTickets)
-def emp_my_tickets(token: str) -> dict:
+def emp_my_tickets(token: str=None) -> dict:
     """
     Retrieve all tickets assigned to the currently authenticated employee.
 

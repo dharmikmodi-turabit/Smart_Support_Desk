@@ -117,7 +117,7 @@ else:
         ],
         "Customer": [
             ("📊 Dashboard", "dashboard"),
-            ("🤖 Chatbot", "chatbot"),
+            # ("🤖 Chatbot", "chatbot"),
             ("🚪 Logout", "logout"),
         ],
     }
