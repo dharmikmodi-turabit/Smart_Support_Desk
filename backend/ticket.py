@@ -587,20 +587,23 @@ def fetch_tickets_by_customer(data:FetchTicketsRequest,user=Depends(get_current_
         - Authorization logic (e.g., Admin/Agent-only access) should be
           enforced before allowing cross-customer ticket access.
     """
-    cursor = db.cursor()
-    cursor.execute("select customer_id from customer where customer_email = %s",(data.customer_email,))
+    try:
+        cursor = db.cursor()
+        cursor.execute("select customer_id from customer where customer_email = %s",(data.customer_email,))
 
-    customer = cursor.fetchone()
-    
-    if not customer:
-        return {"message": "Customer not found"}
+        customer = cursor.fetchone()
+        
+        if not customer:
+            return {"message": "Customer not found"}
 
-    customer_id = customer['customer_id']   # VERY IMPORTANT
-    cursor.execute(
-        "select * from ticket where customer_id=%s",
-        (customer_id,)
-    )
-    return cursor.fetchall()
+        customer_id = customer['customer_id']   # VERY IMPORTANT
+        cursor.execute(
+            "select * from ticket where customer_id=%s",
+            (customer_id,)
+        )
+        return cursor.fetchall()
+    except Exception as e:
+        return str(e)
 
 
 

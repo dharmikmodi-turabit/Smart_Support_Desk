@@ -211,21 +211,24 @@ def customer_login(data: CustomerLogin, db=Depends(access_db)):
     - HTTPException (401): If the provided email or mobile number is invalid.
     """
 
-    cursor = db.cursor()
-    cursor.execute("""
-        select customer_id, customer_email
-        from customer
-        where customer_email=%s or customer_mobile_number=%s
-    """, (data.email_or_mobile, data.email_or_mobile))
+    try:
+        cursor = db.cursor()
+        cursor.execute("""
+            select customer_id, customer_email
+            from customer
+            where customer_email=%s or customer_mobile_number=%s
+        """, (data.email_or_mobile, data.email_or_mobile))
 
-    customer = cursor.fetchone()
-    if not customer:
-        raise HTTPException(401, "Invalid customer")
+        customer = cursor.fetchone()
+        if not customer:
+            raise HTTPException(401, "Invalid customer")
 
-    return {"access_token": create_access_token({
-        "emp_id": customer["customer_id"],
-        "role": "Customer"
-    })}
+        return {"access_token": create_access_token({
+            "emp_id": customer["customer_id"],
+            "role": "Customer"
+        })}
+    except Exception as e:
+        return str(e)
 
 class Update_customer(BaseModel):
     name : Optional[str] = None
@@ -457,18 +460,21 @@ def get_customer_from_hubspot_by_email(
     user=Depends(admin_agent_required),
     db=Depends(access_db)
 ):
-    cursor = db.cursor()
-    print(customer_email)
-    cursor.execute(
-        "SELECT hubspot_contact_id FROM customer WHERE customer_email=%s",
-        (customer_email,)
-    )
-    customer = cursor.fetchone()
+    try:
+        cursor = db.cursor()
+        print(customer_email)
+        cursor.execute(
+            "SELECT hubspot_contact_id FROM customer WHERE customer_email=%s",
+            (customer_email,)
+        )
+        customer = cursor.fetchone()
 
-    if not customer or not customer["hubspot_contact_id"]:
-        raise HTTPException(404, "Customer not synced to HubSpot")
+        if not customer or not customer["hubspot_contact_id"]:
+            raise HTTPException(404, "Customer not synced to HubSpot")
 
-    return fetch_contact_by_id(customer["hubspot_contact_id"])
+        return fetch_contact_by_id(customer["hubspot_contact_id"])
+    except Exception as e:
+        return str(e)
 
 
 @customer_router.get("/hubspot/customer-delete/{customer_id}", tags=["Customer"])

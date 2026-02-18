@@ -82,20 +82,26 @@ def create_session(
         - Session title can later be updated if custom naming is required.
     """
 
-    session = {
-        "user_id": user["emp_id"],  # from JWT
-        "role": user["role"],  # from JWT
-        "title": datetime.utcnow().strftime("%Y-%m-%d %H:%M"),
-        "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow()
-    }
+    try:
+        session = {
+            "user_id": user["emp_id"],  # from JWT
+            "role": user["role"],  # from JWT
+            "title": datetime.utcnow().strftime("%Y-%m-%d %H:%M"),
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
+        }
 
-    result = chat_sessions.insert_one(session)
+        result = chat_sessions.insert_one(session)
 
-    return {
-        "session_id": str(result.inserted_id),
-        "title": session["title"]
-    }
+        return {
+            "session_id": str(result.inserted_id),
+            "title": session["title"]
+        }
+    except Exception as e:
+        raise HTTPException(
+        status_code=500,
+        detail=str(e)
+    )
 
 
 @ai_chat_router.get("/sessions")
@@ -137,14 +143,20 @@ def get_sessions(user=Depends(get_current_user)):
         - No sorting is applied unless defined at the database level.
     """
 
-    sessions = list(
-        chat_sessions.find({"user_id": user["emp_id"]})
+    try:
+        sessions = list(
+            chat_sessions.find({"user_id": user["emp_id"]})
+        )
+
+        for s in sessions:
+            s["_id"] = str(s["_id"])
+
+        return sessions
+    except Exception as e:
+        raise HTTPException(
+        status_code=500,
+        detail=str(e)
     )
-
-    for s in sessions:
-        s["_id"] = str(s["_id"])
-
-    return sessions
 
 
 @ai_chat_router.post("/message")
@@ -189,19 +201,25 @@ def save_message(payload: SaveMessage):
         - Designed for internal chat history persistence.
     """
 
-    message = {
-        "session_id": ObjectId(payload.session_id),
-        "user_id": payload.user_id,
-        "role": payload.role,
-        "content": payload.content,
-        "analysis": payload.analysis,
-        "data": payload.data,
-        "created_at": datetime.utcnow()
-    }
+    try:
+        message = {
+            "session_id": ObjectId(payload.session_id),
+            "user_id": payload.user_id,
+            "role": payload.role,
+            "content": payload.content,
+            "analysis": payload.analysis,
+            "data": payload.data,
+            "created_at": datetime.utcnow()
+        }
 
-    chat_messages.insert_one(message)
+        chat_messages.insert_one(message)
 
-    return {"status": "saved"}
+        return {"status": "saved"}
+    except Exception as e:
+        raise HTTPException(
+        status_code=500,
+        detail=str(e)
+    )
 
 @ai_chat_router.get("/messages/{session_id}")
 def get_messages(session_id: str):
@@ -240,17 +258,20 @@ def get_messages(session_id: str):
         - If no messages exist, an empty list is returned.
     """
 
-    messages = list(
-        chat_messages.find(
-            {"session_id": ObjectId(session_id)}
-        ).sort("created_at", 1)
-    )
+    try:
+        messages = list(
+            chat_messages.find(
+                {"session_id": ObjectId(session_id)}
+            ).sort("created_at", 1)
+        )
 
-    for m in messages:
-        m["_id"] = str(m["_id"])
-        m["session_id"] = str(m["session_id"])
+        for m in messages:
+            m["_id"] = str(m["_id"])
+            m["session_id"] = str(m["session_id"])
 
-    return messages
+        return messages
+    except Exception as e:
+        return str(e)
 
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY1")
@@ -332,28 +353,33 @@ def extract_text(content):
         to maintain predictable API behavior.
     """
 
-    if content is None:
-        return ""
+    try:
+        if content is None:
+            return ""
 
-    if isinstance(content, str):
-        return content.strip()
+        if isinstance(content, str):
+            return content.strip()
 
-    # Sometimes content is a list of dicts
-    if isinstance(content, list):
-        texts = []
-        for item in content:
-            if isinstance(item, dict) and "text" in item:
-                texts.append(item["text"])
-            elif isinstance(item, str):
-                texts.append(item)
-        return " ".join(texts).strip()
+        # Sometimes content is a list of dicts
+        if isinstance(content, list):
+            texts = []
+            for item in content:
+                if isinstance(item, dict) and "text" in item:
+                    texts.append(item["text"])
+                elif isinstance(item, str):
+                    texts.append(item)
+            return " ".join(texts).strip()
 
-    # If dict (JSON), return as-is or stringify
-    if isinstance(content, dict):
-        return content.get("message", "") or ""
+        # If dict (JSON), return as-is or stringify
+        if isinstance(content, dict):
+            return content.get("message", "") or ""
 
-    return str(content)
-
+        return str(content)
+    except Exception as e:
+        raise HTTPException(
+        status_code=500,
+        detail=str(e)
+    )
 
 def extract_json(text: str):
     """
@@ -392,9 +418,11 @@ def extract_json(text: str):
         match = re.search(r"\[.*\]", text, re.S)
         if match:
             return json.loads(match.group())
-    except:
-        pass
-    return []
+    except Exception as e:
+        raise HTTPException(
+        status_code=500,
+        detail=str(e)
+    )
 
 
 class ChatRequest(BaseModel):

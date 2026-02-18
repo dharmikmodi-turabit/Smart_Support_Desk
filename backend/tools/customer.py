@@ -61,13 +61,16 @@ def fetch_customer_by_email(token:str,email:str) -> list[dict]:
     Fetch customer by email from the hubspot,
     email is mandotory for fetch customer .
     """
-    response = requests.get(
-        f"{API_BASE_URL}/hubspot/customer_email/{email}",
-        headers={
-                "Authorization": f"Bearer {token}"
-            }
-    )
-    return [response.json()['properties']]
+    try:
+        response = requests.get(
+            f"{API_BASE_URL}/hubspot/customer_email/{email}",
+            headers={
+                    "Authorization": f"Bearer {token}"
+                }
+        )
+        return [response.json()['properties']]
+    except Exception as e:
+        return str(e)
 
 
 
