@@ -1,4 +1,4 @@
-from backend.database.database import access_db
+from database.database import access_db
 from pydantic import BaseModel, ValidationError
 from langchain.tools import tool
 from typing import Optional

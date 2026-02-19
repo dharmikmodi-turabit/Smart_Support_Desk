@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
-from api import api_call
-from ui import apply_global_style
+from utils.api import api_call
+from utils.ui import apply_global_style
 
 
 def customer_dashboard(user):

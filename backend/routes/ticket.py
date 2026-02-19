@@ -1,6 +1,6 @@
 from fastapi import status,Depends, HTTPException, APIRouter
-from database import access_db
-from backend.Authentication.dependencies import get_current_user,admin_agent_required, customer_required, admin_agent_customer_required
+from database.database import access_db
+from Authentication.dependencies import get_current_user,admin_agent_required, customer_required, admin_agent_customer_required
 from pydantic import BaseModel
 from typing import Optional
 from enum import Enum

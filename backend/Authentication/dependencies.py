@@ -1,8 +1,8 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
-from auth import SECRET_KEY, ALGORITHM
-from redis_client import redis_client
+from Authentication.auth import SECRET_KEY, ALGORITHM
+from Authentication.redis_client import redis_client
 
 security = HTTPBearer()
 

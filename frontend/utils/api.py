@@ -36,7 +36,7 @@ def api_call(method, endpoint, token=None, json=None, params=None):
     Perform an authenticated HTTP request to the backend API.
 
     This helper function centralizes API communication for the Streamlit
-    frontend. It automatically attaches the JWT token (if provided),
+     It automatically attaches the JWT token (if provided),
     handles common error scenarios, and manages token-expiry logout
     behavior.
 

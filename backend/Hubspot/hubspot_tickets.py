@@ -1,13 +1,13 @@
 from fastapi import APIRouter, HTTPException,status, Depends
-from backend.database.database import access_db
+from database.database import access_db
 from pydantic import BaseModel
 import requests, os
 from requests.exceptions import RequestException
 from enum import Enum
 from dotenv import load_dotenv
-from backend.Hubspot.hubspot_contacts import get_contact_id_by_email
+from Hubspot.hubspot_contacts import get_contact_id_by_email
 # from ticket import TicketRegister,Depends,admin_agent_required
-from backend.Authentication.dependencies import admin_agent_required
+from Authentication.dependencies import admin_agent_required
 
 hubspot_ticket_router = APIRouter(prefix="/hubspot", tags=["HubSpot Ticket"])
 router  = hubspot_ticket_router

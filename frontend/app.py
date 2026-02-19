@@ -1,12 +1,12 @@
 import streamlit as st
 import jwt
-from auth import login, logout, customer_login
-from employee import employee_add, service_person_tickets, employee_view, employee_update, employee_chat_dashboard
-from customer import customer_view, customer_add, customer_update
-from dashboard.employee import employee_dashboard
-from dashboard.customer import customer_dashboard
-from ticket import ticket_update, ticket_view, ticket_create, customer_ticket_view
-from ai_chat_page import ai_chatbot_page
+from utils.auth import login, logout, customer_login
+from views.employee import employee_add, service_person_tickets, employee_view, employee_update, employee_chat_dashboard
+from views.customer import customer_view, customer_add, customer_update
+from views.dashboard.employee import employee_dashboard
+from views.dashboard.customer import customer_dashboard
+from views.ticket import ticket_update, ticket_view, ticket_create, customer_ticket_view
+from views.ai_chat_page import ai_chatbot_page
 
 # ---------------- CONFIG ----------------
 st.set_page_config(

@@ -1,9 +1,10 @@
 
-from database import access_db
+from database.database import access_db
 from pydantic import BaseModel, ValidationError
 from langchain.tools import tool
 from typing import Optional
 import requests
+
 
 API_BASE_URL = "http://127.0.0.1:8000"
 

@@ -1,6 +1,6 @@
 from fastapi import status,Depends, HTTPException, APIRouter
-from database import access_db
-from backend.Authentication.dependencies import admin_required, employee_create_permission
+from database.database import access_db
+from Authentication.dependencies import admin_required, employee_create_permission
 from pydantic import BaseModel
 from enum import Enum
 from Authentication.auth import create_access_token

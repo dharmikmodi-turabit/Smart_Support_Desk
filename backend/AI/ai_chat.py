@@ -1,16 +1,16 @@
 from fastapi import APIRouter, Depends, Request
 from fastapi.exceptions import HTTPException
 from pydantic import BaseModel
-from dependencies import get_current_user
+from Authentication.dependencies import get_current_user
 from typing import Optional, List, Dict, Union
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage
 import requests
-from tools.customer import fetch_all_customers, create_customer, fetch_customer_by_email, update_customer
-from tools.ticket import create_ticket, emp_my_tickets, customer_my_tickets, fetch_all_tickets, fetch_tickets_by_customer, ticket_analysis_per_emp, update_ticket
+from AI.tools.customer import fetch_all_customers, create_customer, fetch_customer_by_email, update_customer
+from AI.tools.ticket import create_ticket, emp_my_tickets, customer_my_tickets, fetch_all_tickets, fetch_tickets_by_customer, ticket_analysis_per_emp, update_ticket
 import json, os, re
 from langchain_groq import ChatGroq
-from database import chat_sessions, chat_messages
+from database.database import chat_sessions, chat_messages
 from bson import ObjectId
 from datetime import datetime
 

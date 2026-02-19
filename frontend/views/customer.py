@@ -1,6 +1,6 @@
 import streamlit as st
-from api import api_call
-from ui import apply_global_style
+from utils.api import api_call
+from utils.ui import apply_global_style
 
 def customer_view():
     """
