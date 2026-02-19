@@ -1,16 +1,16 @@
 from fastapi import APIRouter, Depends, Request
 from fastapi.exceptions import HTTPException
 from pydantic import BaseModel
-from dependencies import get_current_user
+from Authentication.dependencies import get_current_user
 from typing import Optional, List, Dict, Union
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage
 import requests
-from tools.customer import fetch_all_customers, create_customer, fetch_customer_by_email, update_customer
-from tools.ticket import create_ticket, emp_my_tickets, customer_my_tickets, fetch_all_tickets, fetch_tickets_by_customer, ticket_analysis_per_emp, update_ticket
+from AI.tools.customer import fetch_all_customers, create_customer, fetch_customer_by_email, update_customer
+from AI.tools.ticket import create_ticket, emp_my_tickets, customer_my_tickets, fetch_all_tickets, fetch_tickets_by_customer, ticket_analysis_per_emp, update_ticket
 import json, os, re
 from langchain_groq import ChatGroq
-from database import chat_sessions, chat_messages
+from database.database import chat_sessions, chat_messages
 from bson import ObjectId
 from datetime import datetime
 
@@ -82,20 +82,26 @@ def create_session(
         - Session title can later be updated if custom naming is required.
     """
 
-    session = {
-        "user_id": user["emp_id"],  # from JWT
-        "role": user["role"],  # from JWT
-        "title": datetime.utcnow().strftime("%Y-%m-%d %H:%M"),
-        "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow()
-    }
+    try:
+        session = {
+            "user_id": user["emp_id"],  # from JWT
+            "role": user["role"],  # from JWT
+            "title": datetime.utcnow().strftime("%Y-%m-%d %H:%M"),
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
+        }
 
-    result = chat_sessions.insert_one(session)
+        result = chat_sessions.insert_one(session)
 
-    return {
-        "session_id": str(result.inserted_id),
-        "title": session["title"]
-    }
+        return {
+            "session_id": str(result.inserted_id),
+            "title": session["title"]
+        }
+    except Exception as e:
+        raise HTTPException(
+        status_code=500,
+        detail=str(e)
+    )
 
 
 @ai_chat_router.get("/sessions")
@@ -137,14 +143,20 @@ def get_sessions(user=Depends(get_current_user)):
         - No sorting is applied unless defined at the database level.
     """
 
-    sessions = list(
-        chat_sessions.find({"user_id": user["emp_id"]})
+    try:
+        sessions = list(
+            chat_sessions.find({"user_id": user["emp_id"]})
+        )
+
+        for s in sessions:
+            s["_id"] = str(s["_id"])
+
+        return sessions
+    except Exception as e:
+        raise HTTPException(
+        status_code=500,
+        detail=str(e)
     )
-
-    for s in sessions:
-        s["_id"] = str(s["_id"])
-
-    return sessions
 
 
 @ai_chat_router.post("/message")
@@ -189,19 +201,25 @@ def save_message(payload: SaveMessage):
         - Designed for internal chat history persistence.
     """
 
-    message = {
-        "session_id": ObjectId(payload.session_id),
-        "user_id": payload.user_id,
-        "role": payload.role,
-        "content": payload.content,
-        "analysis": payload.analysis,
-        "data": payload.data,
-        "created_at": datetime.utcnow()
-    }
+    try:
+        message = {
+            "session_id": ObjectId(payload.session_id),
+            "user_id": payload.user_id,
+            "role": payload.role,
+            "content": payload.content,
+            "analysis": payload.analysis,
+            "data": payload.data,
+            "created_at": datetime.utcnow()
+        }
 
-    chat_messages.insert_one(message)
+        chat_messages.insert_one(message)
 
-    return {"status": "saved"}
+        return {"status": "saved"}
+    except Exception as e:
+        raise HTTPException(
+        status_code=500,
+        detail=str(e)
+    )
 
 @ai_chat_router.get("/messages/{session_id}")
 def get_messages(session_id: str):
@@ -240,17 +258,20 @@ def get_messages(session_id: str):
         - If no messages exist, an empty list is returned.
     """
 
-    messages = list(
-        chat_messages.find(
-            {"session_id": ObjectId(session_id)}
-        ).sort("created_at", 1)
-    )
+    try:
+        messages = list(
+            chat_messages.find(
+                {"session_id": ObjectId(session_id)}
+            ).sort("created_at", 1)
+        )
 
-    for m in messages:
-        m["_id"] = str(m["_id"])
-        m["session_id"] = str(m["session_id"])
+        for m in messages:
+            m["_id"] = str(m["_id"])
+            m["session_id"] = str(m["session_id"])
 
-    return messages
+        return messages
+    except Exception as e:
+        return str(e)
 
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY1")
@@ -332,28 +353,33 @@ def extract_text(content):
         to maintain predictable API behavior.
     """
 
-    if content is None:
-        return ""
+    try:
+        if content is None:
+            return ""
 
-    if isinstance(content, str):
-        return content.strip()
+        if isinstance(content, str):
+            return content.strip()
 
-    # Sometimes content is a list of dicts
-    if isinstance(content, list):
-        texts = []
-        for item in content:
-            if isinstance(item, dict) and "text" in item:
-                texts.append(item["text"])
-            elif isinstance(item, str):
-                texts.append(item)
-        return " ".join(texts).strip()
+        # Sometimes content is a list of dicts
+        if isinstance(content, list):
+            texts = []
+            for item in content:
+                if isinstance(item, dict) and "text" in item:
+                    texts.append(item["text"])
+                elif isinstance(item, str):
+                    texts.append(item)
+            return " ".join(texts).strip()
 
-    # If dict (JSON), return as-is or stringify
-    if isinstance(content, dict):
-        return content.get("message", "") or ""
+        # If dict (JSON), return as-is or stringify
+        if isinstance(content, dict):
+            return content.get("message", "") or ""
 
-    return str(content)
-
+        return str(content)
+    except Exception as e:
+        raise HTTPException(
+        status_code=500,
+        detail=str(e)
+    )
 
 def extract_json(text: str):
     """
@@ -392,9 +418,11 @@ def extract_json(text: str):
         match = re.search(r"\[.*\]", text, re.S)
         if match:
             return json.loads(match.group())
-    except:
-        pass
-    return []
+    except Exception as e:
+        raise HTTPException(
+        status_code=500,
+        detail=str(e)
+    )
 
 
 class ChatRequest(BaseModel):
@@ -917,32 +945,54 @@ Your goal is SAFE, PREDICTABLE, and CORRECT CRM automation.
                 if isinstance(tickets, dict) and tickets.get("detail"):
                     return {"message": tickets["detail"]}
 
-                # ---------- SECOND PASS (LLM FILTERING) ----------
-                filter_messages = [
-                    SystemMessage(content="""
-            You are a CRM ticket filtering engine.
+            #     # ---------- SECOND PASS (LLM FILTERING) ----------
+            #     filter_messages = [
+            #         SystemMessage(content="""
+            # You are a CRM ticket filtering engine.
 
-            Filter the provided tickets strictly based on the user's request.
+            # Filter the provided tickets strictly based on the user's request.
 
-            Return ONLY a JSON array.
-            Do NOT include explanations.
-            Output MUST start with [ and end with ].
-            """),
-                    HumanMessage(
-                        content=f"""
-                User request:
-                {payload.prompt}
+            # Return ONLY a JSON array.
+            # Do NOT include explanations.
+            # Output MUST start with [ and end with ].
+            # """),
+            #         HumanMessage(
+            #             content=f"""
+            #     User request:
+            #     {payload.prompt}
 
-                Tickets:
-                {json.dumps(tickets)}
-                """
-                    )
-                ]
+            #     Tickets:
+            #     {json.dumps(tickets)}
+            #     """
+            #         )
+            #     ]
 
-                filtered = llm.invoke(filter_messages)
+            #     filtered = llm.invoke(filter_messages)
 
-                filtered_json = extract_json(filtered.content)
+            #     filtered_json = extract_json(filtered.content)
+                filtered_json = tickets
+                print(filtered_json)
 
+                prompt_lower = payload.prompt.lower()
+
+                if "high" in prompt_lower:
+                    filtered_json = [t for t in filtered_json if t.get("priority") == "High"]
+
+                elif "medium" in prompt_lower:
+                    filtered_json = [t for t in filtered_json if t.get("priority") == "Medium"]
+
+                elif "low" in prompt_lower:
+                    filtered_json = [t for t in filtered_json if t.get("priority") == "Low"]
+
+                if "open" in prompt_lower:
+                    filtered_json = [t for t in filtered_json if t.get("ticket_status") == "Open"]
+
+                elif "close" in prompt_lower:
+                    filtered_json = [t for t in filtered_json if t.get("ticket_status") == "Close"]
+
+                elif "in progress" in prompt_lower:
+                    filtered_json = [t for t in filtered_json if t.get("ticket_status") == "In_Progress"]
+                print(filtered_json)
                 return {
                     "message": "Tickets fetched successfully",
                     "data": filtered_json
@@ -997,35 +1047,62 @@ Your goal is SAFE, PREDICTABLE, and CORRECT CRM automation.
                 }
 
                 tickets = fetch_all_tickets.invoke(tool_argss)
+                print("Tickets++++++++++++++++++++++++++++",tickets)
                 if isinstance(tickets, dict) and tickets.get('detail'):
                     return {"message": tickets['detail']}
 
-                # ---------- SECOND PASS (LLM FILTERING) ----------
-                filter_messages = [
-                    SystemMessage(content="""
-            You are a CRM ticket filtering engine.
+            #     # ---------- SECOND PASS (LLM FILTERING) ----------
+            #     filter_messages = [
+            #         SystemMessage(content=f"""
+            # You are a CRM ticket filtering engine.
 
-            Filter the provided tickets strictly based on the user's request.
+            # Filter the provided tickets strictly based on the user's request.
+            # If {role} is admin and asking for "my tickets" then return all tickets, No need to find id into the data.
 
-            Return ONLY a JSON array.
-            Do NOT include explanations.
-            Output MUST start with [ and end with ].
-            """),
-                    HumanMessage(
-                        content=f"""
-                User request:
-                {payload.prompt}
+            # Return ONLY a JSON array.
+            # Do NOT include explanations.
+            # Output MUST start with [ and end with ].
+            # """),
+            #         HumanMessage(
+            #             content=f"""
+            #     User request:
+            #     {payload.prompt}
 
-                Tickets:
-                {json.dumps(tickets)}
-                """
-                    )
-                ]
+            #     Tickets:
+            #     {json.dumps(tickets)}
+            #     """
+            #         )
+            #     ]
 
 
-                filtered = llm.invoke(filter_messages)
+            #     filtered = llm.invoke(filter_messages)
+            #     print("filtered_________________________",filtered)
 
-                filtered_json = extract_json(filtered.content)
+            #     filtered_json = extract_json(filtered.content)
+            #     print("filtered_json=============================",filtered_json)
+                filtered_json = tickets
+                print(filtered_json)
+
+                prompt_lower = payload.prompt.lower()
+
+                if "high" in prompt_lower:
+                    filtered_json = [t for t in filtered_json if t.get("priority") == "High"]
+
+                elif "medium" in prompt_lower:
+                    filtered_json = [t for t in filtered_json if t.get("priority") == "Medium"]
+
+                elif "low" in prompt_lower:
+                    filtered_json = [t for t in filtered_json if t.get("priority") == "Low"]
+
+                if "open" in prompt_lower:
+                    filtered_json = [t for t in filtered_json if t.get("ticket_status") == "Open"]
+
+                elif "close" in prompt_lower:
+                    filtered_json = [t for t in filtered_json if t.get("ticket_status") == "Close"]
+
+                elif "in progress" in prompt_lower:
+                    filtered_json = [t for t in filtered_json if t.get("ticket_status") == "In_Progress"]
+                print(filtered_json)
                 return {
                     "message": "Tickets fetched successfully",
                     "data": filtered_json
@@ -1065,11 +1142,11 @@ Your goal is SAFE, PREDICTABLE, and CORRECT CRM automation.
                 }
             elif tool_name == "ticket_analysis_per_emp":
                 tool_args = tool_call.get("args", {})
-
+                if not tool_args.get("emp_id"):
+                    tool_args["emp_id"]= user_id
                 tool_args["token"] = token
 
                 analysis = ticket_analysis_per_emp.invoke(tool_args)
-                print(analysis)
 
 
                 return {

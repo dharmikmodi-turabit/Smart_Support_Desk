@@ -1,4 +1,4 @@
-from database import access_db
+from database.database import access_db
 from pydantic import BaseModel, ValidationError
 from langchain.tools import tool
 from typing import Optional
@@ -158,7 +158,7 @@ class EmpMyTickets(BaseModel):
 
 
 @tool("emp_my_tickets", args_schema=EmpMyTickets)
-def emp_my_tickets(token: str) -> dict:
+def emp_my_tickets(token: str=None) -> dict:
     """
     Retrieve all tickets assigned to the currently authenticated employee.
 
@@ -271,22 +271,23 @@ def fetch_tickets_by_customer(customer_email: str, token: str):
         return {"error": str(e)}
 
 
-
-
 @tool
-def ticket_analysis_per_emp(emp_id: int, token: str=None):
+def ticket_analysis_per_emp(emp_id: int=None, token: str=None):
     """
     Fetch ticket analytics (counts) for an employee.
     """
-    headers = {"Authorization": f"Bearer {token}"}
-    resp = requests.post(
-        f"{API_BASE_URL}/ticket_analysis_per_emp",
-        params={"emp_id": emp_id},
-        headers=headers,
-        timeout=10
-    )
+    try:
+        headers = {"Authorization": f"Bearer {token}"}
+        resp = requests.post(
+            f"{API_BASE_URL}/ticket_analysis_per_emp",
+            params={"emp_id": emp_id},
+            headers=headers,
+            timeout=10
+        )
 
-    if resp.status_code != 200:
-        return {"detail": resp.json().get("detail", "Failed to fetch analysis")}
+        if resp.status_code != 200:
+            return {"detail": resp.json().get("detail", "Failed to fetch analysis")}
 
-    return resp.json()
+        return resp.json()
+    except Exception as e:
+        return str(e)

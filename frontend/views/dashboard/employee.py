@@ -1,5 +1,5 @@
 import streamlit as st
-from api import api_call
+from utils.api import api_call
 import pandas as pd
 import plotly.express as px
 
@@ -94,6 +94,10 @@ def employee_dashboard(user):
             "Close": "#00d084"
         }
     )
+    # 🔥 Clean hover
+    fig_status.update_traces(
+        hovertemplate="%{label}"
+    )
 
     fig_priority = px.bar(
         df,
@@ -103,8 +107,7 @@ def employee_dashboard(user):
         title="🔥 Ticket Status by Priority",
         labels={
             "ticket_status": "Ticket Status",
-            "priority": "Priority",
-            "count": "Count"
+            "priority": "Priority"
         }
     )
 

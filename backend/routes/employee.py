@@ -1,10 +1,10 @@
 from fastapi import status,Depends, HTTPException, APIRouter
-from database import access_db
-from dependencies import admin_required, employee_create_permission
+from database.database import access_db
+from Authentication.dependencies import admin_required, employee_create_permission
 from pydantic import BaseModel
 from enum import Enum
-from auth import create_access_token
-from redis_client import redis_client
+from Authentication.auth import create_access_token
+from Authentication.redis_client import redis_client
 
 employee_router = APIRouter()
 
@@ -60,42 +60,45 @@ def employee_registration(
     - HTTPException (500): If an unexpected error occurs.
     """
 
-    creator_role = user["role"]
+    try:
+        creator_role = user["role"]
 
-    # AGENT RESTRICTION
-    if user["role"] == "Agent" and data.type != UserRole.service_person:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Agent can only register Service Person"
-        )
-
-
-    # ---- EXISTING LOGIC ----
-    with db:
-        with db.cursor() as cursor:
-            cursor.execute(
-                "select 1 from employee where employee_email=%s",
-                (data.email,)
+        # AGENT RESTRICTION
+        if user["role"] == "Agent" and data.type != UserRole.service_person:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Agent can only register Service Person"
             )
-            if cursor.fetchone():
-                raise HTTPException(409, "Email already exists")
 
-            cursor.execute(
-                "select employee_type_id from employee_type where type_name=%s",
-                (data.type.value,)
-            )
-            type_id = cursor.fetchone()["employee_type_id"]
 
-            cursor.execute(
-                """insert into employee
-                (employee_name, employee_email, employee_mobile_number,
-                 employee_password, employee_type)
-                values (%s,%s,%s,%s,%s)""",
-                (data.name, data.email, data.mobile_number, data.password, type_id)
-            )
-            db.commit()
+        # ---- EXISTING LOGIC ----
+        with db:
+            with db.cursor() as cursor:
+                cursor.execute(
+                    "select 1 from employee where employee_email=%s",
+                    (data.email,)
+                )
+                if cursor.fetchone():
+                    raise HTTPException(409, "Email already exists")
 
-    return {"message": "Employee registered successfully"}
+                cursor.execute(
+                    "select employee_type_id from employee_type where type_name=%s",
+                    (data.type.value,)
+                )
+                type_id = cursor.fetchone()["employee_type_id"]
+
+                cursor.execute(
+                    """insert into employee
+                    (employee_name, employee_email, employee_mobile_number,
+                     employee_password, employee_type)
+                    values (%s,%s,%s,%s,%s)""",
+                    (data.name, data.email, data.mobile_number, data.password, type_id)
+                )
+                db.commit()
+
+        return {"message": "Employee registered successfully"}
+    except Exception as e:
+        return str(e)
 
 @employee_router.get("/all_employees", tags=["Employee"])
 def fetch_all_employees(user=Depends(admin_required),db = Depends(access_db)):

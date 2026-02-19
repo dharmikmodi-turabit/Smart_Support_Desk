@@ -1,11 +1,11 @@
 from fastapi import status,Depends, HTTPException, APIRouter
-from database import access_db
-from dependencies import admin_required, admin_agent_required
+from database.database import access_db
+from Authentication.dependencies import admin_required, admin_agent_required
 from pydantic import BaseModel
-from auth import create_access_token
-from hubspot_contacts import sync_contact
-from hubspot_contacts import fetch_contact_by_id
-from hubspot_delete import delete_hubspot_object
+from Authentication.auth import create_access_token
+from Hubspot.hubspot_contacts import sync_contact
+from Hubspot.hubspot_contacts import fetch_contact_by_id
+from Hubspot.hubspot_delete import delete_hubspot_object
 from typing import Optional
 
 
@@ -211,21 +211,24 @@ def customer_login(data: CustomerLogin, db=Depends(access_db)):
     - HTTPException (401): If the provided email or mobile number is invalid.
     """
 
-    cursor = db.cursor()
-    cursor.execute("""
-        select customer_id, customer_email
-        from customer
-        where customer_email=%s or customer_mobile_number=%s
-    """, (data.email_or_mobile, data.email_or_mobile))
+    try:
+        cursor = db.cursor()
+        cursor.execute("""
+            select customer_id, customer_email
+            from customer
+            where customer_email=%s or customer_mobile_number=%s
+        """, (data.email_or_mobile, data.email_or_mobile))
 
-    customer = cursor.fetchone()
-    if not customer:
-        raise HTTPException(401, "Invalid customer")
+        customer = cursor.fetchone()
+        if not customer:
+            raise HTTPException(401, "Invalid customer")
 
-    return {"access_token": create_access_token({
-        "emp_id": customer["customer_id"],
-        "role": "Customer"
-    })}
+        return {"access_token": create_access_token({
+            "emp_id": customer["customer_id"],
+            "role": "Customer"
+        })}
+    except Exception as e:
+        return str(e)
 
 class Update_customer(BaseModel):
     name : Optional[str] = None
@@ -303,8 +306,7 @@ def update_customer(data : Update_customer,user=Depends(admin_agent_required),db
                     try:
                         sync_contact(customer,db)
                     except Exception as e:
-                        print("HubSpot update failed:", e)
-
+                        pass
                     return {"message": "Customer updated & synced"}
 
                 raise HTTPException(
@@ -450,6 +452,30 @@ def get_customer_from_hubspot(
         raise HTTPException(
         status_code=500,
         detail=str(e))
+
+
+@customer_router.get("/hubspot/customer_email/{customer_email}", tags=["Customer"])
+def get_customer_from_hubspot_by_email(
+    customer_email: str,
+    user=Depends(admin_agent_required),
+    db=Depends(access_db)
+):
+    try:
+        cursor = db.cursor()
+        print(customer_email)
+        cursor.execute(
+            "SELECT hubspot_contact_id FROM customer WHERE customer_email=%s",
+            (customer_email,)
+        )
+        customer = cursor.fetchone()
+
+        if not customer or not customer["hubspot_contact_id"]:
+            raise HTTPException(404, "Customer not synced to HubSpot")
+
+        return fetch_contact_by_id(customer["hubspot_contact_id"])
+    except Exception as e:
+        return str(e)
+
 
 @customer_router.get("/hubspot/customer-delete/{customer_id}", tags=["Customer"])
 def delete_customer_from_hubspot(customer_id:int,db=Depends(access_db)):

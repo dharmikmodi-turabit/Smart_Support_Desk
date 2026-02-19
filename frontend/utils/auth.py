@@ -1,5 +1,5 @@
 import streamlit as st
-from api import api_call
+from utils.api import api_call
 
 def login():
     """

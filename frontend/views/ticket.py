@@ -1,8 +1,8 @@
 import streamlit as st
-from api import api_call
+from utils.api import api_call
 from datetime import datetime
 import pandas as pd
-from ui import apply_global_style
+from utils.ui import apply_global_style
 
 @st.cache_data(ttl=30)
 def get_all_tickets(token):

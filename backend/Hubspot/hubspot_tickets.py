@@ -1,13 +1,13 @@
 from fastapi import APIRouter, HTTPException,status, Depends
-from database import access_db
+from database.database import access_db
 from pydantic import BaseModel
 import requests, os
 from requests.exceptions import RequestException
 from enum import Enum
 from dotenv import load_dotenv
-from hubspot_contacts import get_contact_id_by_email
+from Hubspot.hubspot_contacts import get_contact_id_by_email
 # from ticket import TicketRegister,Depends,admin_agent_required
-from dependencies import admin_agent_required
+from Authentication.dependencies import admin_agent_required
 
 hubspot_ticket_router = APIRouter(prefix="/hubspot", tags=["HubSpot Ticket"])
 router  = hubspot_ticket_router
@@ -269,8 +269,6 @@ def hubspot_update_ticket(hubspot_ticket_id, data):
 
         if data.reason:
             payload["properties"]["reason"] = data.reason
-           
-        # print(payload)
 
         r = requests.patch(
             f"{url}/{hubspot_ticket_id}",

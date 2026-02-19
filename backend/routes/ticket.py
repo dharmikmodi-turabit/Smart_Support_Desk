@@ -1,12 +1,12 @@
 from fastapi import status,Depends, HTTPException, APIRouter
-from database import access_db
-from dependencies import get_current_user,admin_agent_required, customer_required, admin_agent_customer_required
+from database.database import access_db
+from Authentication.dependencies import get_current_user,admin_agent_required, customer_required, admin_agent_customer_required
 from pydantic import BaseModel
 from typing import Optional
 from enum import Enum
 from datetime import datetime
-from hubspot_tickets import hubspot_create_ticket, hubspot_close_ticket, hubspot_update_ticket
-from hubspot_contacts import get_contact_id_by_email
+from Hubspot.hubspot_tickets import hubspot_create_ticket, hubspot_close_ticket, hubspot_update_ticket
+from Hubspot.hubspot_contacts import get_contact_id_by_email
 
 
 ticket_router = APIRouter()
@@ -436,20 +436,15 @@ def ticket_analysis_per_emp(emp_id: int, db=Depends(access_db)):
                 else:
                     total_ticket_count = cursor.execute("select * from ticket")
                     d = cursor.fetchall()
-
-                if d:
-                    Opened_ticket_count = cursor.execute(
-                        "select * from ticket where ticket_status = %s",
-                        "Open"
-                    )
-                    in_progress_ticket_count = cursor.execute(
-                        "select * from ticket where ticket_status = %s",
-                        "In_Progress"
-                    )
-                    Closed_ticket_count = cursor.execute(
-                        "select * from ticket where ticket_status = %s",
-                        "Close"
-                    )
+                if total_ticket_count:
+                    Opened_ticket_count = in_progress_ticket_count = Closed_ticket_count = 0
+                    for i in d:
+                        if i.get("ticket_status") == "Open":
+                            Opened_ticket_count +=1
+                        elif i.get("ticket_status") == "In_Progress":
+                            in_progress_ticket_count +=1
+                        elif i.get("ticket_status") == "Close":
+                            Closed_ticket_count +=1
 
                     return {
                         "total_ticket_count": total_ticket_count,
@@ -592,20 +587,23 @@ def fetch_tickets_by_customer(data:FetchTicketsRequest,user=Depends(get_current_
         - Authorization logic (e.g., Admin/Agent-only access) should be
           enforced before allowing cross-customer ticket access.
     """
-    cursor = db.cursor()
-    cursor.execute("select customer_id from customer where customer_email = %s",(data.customer_email,))
+    try:
+        cursor = db.cursor()
+        cursor.execute("select customer_id from customer where customer_email = %s",(data.customer_email,))
 
-    customer = cursor.fetchone()
-    
-    if not customer:
-        return {"message": "Customer not found"}
+        customer = cursor.fetchone()
+        
+        if not customer:
+            return {"message": "Customer not found"}
 
-    customer_id = customer['customer_id']   # VERY IMPORTANT
-    cursor.execute(
-        "select * from ticket where customer_id=%s",
-        (customer_id,)
-    )
-    return cursor.fetchall()
+        customer_id = customer['customer_id']   # VERY IMPORTANT
+        cursor.execute(
+            "select * from ticket where customer_id=%s",
+            (customer_id,)
+        )
+        return cursor.fetchall()
+    except Exception as e:
+        return str(e)
 
 
 
