@@ -1,10 +1,10 @@
 from fastapi import status,Depends, HTTPException, APIRouter
 from database import access_db
-from dependencies import admin_required, employee_create_permission
+from backend.Authentication.dependencies import admin_required, employee_create_permission
 from pydantic import BaseModel
 from enum import Enum
-from auth import create_access_token
-from redis_client import redis_client
+from Authentication.auth import create_access_token
+from Authentication.redis_client import redis_client
 
 employee_router = APIRouter()
 

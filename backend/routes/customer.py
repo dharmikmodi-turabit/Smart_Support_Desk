@@ -1,8 +1,8 @@
 from fastapi import status,Depends, HTTPException, APIRouter
 from database import access_db
-from dependencies import admin_required, admin_agent_required
+from backend.Authentication.dependencies import admin_required, admin_agent_required
 from pydantic import BaseModel
-from auth import create_access_token
+from Authentication.auth import create_access_token
 from hubspot_contacts import sync_contact
 from hubspot_contacts import fetch_contact_by_id
 from hubspot_delete import delete_hubspot_object

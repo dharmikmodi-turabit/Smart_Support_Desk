@@ -2,13 +2,13 @@ from fastapi import FastAPI, Depends
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
 import os
-from hubspot_tickets import hubspot_ticket_router
-from employee import employee_router
-from customer import customer_router
-from ticket import ticket_router
-from ai_chat import ai_chat_router
-from dependencies import HTTPAuthorizationCredentials, security
-from redis_client import redis_client
+from Hubspot.hubspot_tickets import hubspot_ticket_router
+from routes.employee import employee_router
+from routes.customer import customer_router
+from routes.ticket import ticket_router
+from AI.ai_chat import ai_chat_router
+from Authentication.dependencies import HTTPAuthorizationCredentials, security
+from Authentication.redis_client import redis_client
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(BASE_DIR, ".env"), override=True)
